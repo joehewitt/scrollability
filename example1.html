@@ -17,7 +17,7 @@ html {
     position: absolute;
     left: 0;
     top: 30px;
-    bottom: 24px;
+    bottom: 30px;
     width: 320px;
     background: #fff;
     overflow: hidden;
@@ -31,7 +31,7 @@ html {
     position: relative;
     top: -1px;
     border-top: 1px solid #ccc;
-    padding: 8px 12px;
+    padding: 9px 12px;
     font: 21px Helvetica;
     font-weight: bold;
     background: #fff;
@@ -44,22 +44,22 @@ html {
 .bar {
     position: absolute;
     background: #222;
+    padding: 7px 0;
     left: 0;
     width: 100%;
     color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
 }
 
 .bar.top {
     top: 0;
-    padding: 7px 0;
-    text-align: center;
-    font-size: 12px;
-    font-weight: bold;
     border-bottom: 1px solid #000;
 }
 
 .bar.bottom {
-	bottom: 0;
+    bottom: 0;
 }
 
 .item.touched {
@@ -75,7 +75,7 @@ html {
 
 </style>
 
-<script type="text/javascript" src="scrollability-min.js"></script>
+<script type="text/javascript" src="../scrollability.js"></script>
 
 <script language="javascript">
 
@@ -140,14 +140,14 @@ addEventListener('DOMContentLoaded', function() {
         item.className = 'item';
         item.innerHTML = names[i%names.length];
         page.appendChild(item);
-        if (page.offsetHeight > container.offsetHeight*8) {
+        if (page.offsetHeight > container.offsetHeight*6) {
             break;
         }
     }
 });
 
 </script>
-	
+    
 </head>
 <body>
     <div class="bar top">Scrollability Demo</div>
