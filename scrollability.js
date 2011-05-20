@@ -8,7 +8,7 @@ var kLockThreshold = 10;
 var kTouchMultiplier = 1;
 
 // Maximum velocity for motion after user releases finger
-var kMaxVelocity = 600;
+var kMaxVelocity = 550;
 
 // Rate of deceleration after user releases finger
 var kDecelRate = 350;
