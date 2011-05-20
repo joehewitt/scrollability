@@ -1,17 +1,37 @@
 /* See LICENSE for terms of usage */
 (function() {
 
+// Number of pixels finger must move to determine horizontal or vertical motion
 var kLockThreshold = 10;
+
+// Factor which reduces the length of motion by each move of the finger
 var kTouchMultiplier = 0.6;
+
+// Maximum velocity for motion after user releases finger
 var kMaxVelocity = 1300;
-var kBounceLimit = 0.5;
-var kBounceDecelRate = 300;
+
+// Rate of deceleration after user releases finger
 var kDecelRate = 350;
+
+// Percentage of the page which content can be overscrolled before it must bounce back
+var kBounceLimit = 0.5;
+
+// Rate of deceleration when content has overscrolled and is slowing down before bouncing back
+var kBounceDecelRate = 300;
+
+// Duration of animation when bouncing back
 var kBounceTime = 90;
-var kScrollToTime = 60;
+
+// Percentage of viewport which must be scrolled past in order to snap to the next page
 var kPageLimit = 0.05;
+
+// Velocity at which the animation will advance to the next page
 var kPageEscapeVelocity = 50;
+
+// Vertical margin of scrollbar
 var kScrollbarMargin = 2;
+
+// ===============================================================================================
 
 var startX, startY, touchX, touchY, touchDown, touchMoved;
 var animationInterval = 0;
@@ -75,6 +95,7 @@ function onTouchStart(event) {
         touchX = touch.clientX;
         touchY = touch.clientY;
 
+        // Reduce the candidates down to the one whose axis follows the finger most closely
         if (touchTargets.length > 1) {
             for (var i = 0; i < touchTargets.length; ++i) {
                 var target = touchTargets[i];
@@ -93,6 +114,7 @@ function onTouchStart(event) {
             holdTimeout = 0;
         }
 
+        // Simulate a click event when releasing the finger
         if (touched) {
             var evt = document.createEvent('MouseEvents'); 
             evt.initMouseEvent('click', true, true, window, 1);
@@ -249,6 +271,7 @@ function createTarget(target, startX, startY, startTime) {
         target.node[target.key] = position;
         target.update(target.node, position);
 
+        // Update the scrollbar
         var range = -min - max;
         if (scrollbar && viewport < range) {
             var viewable = viewport - kScrollbarMargin*2;
@@ -273,10 +296,12 @@ function createTarget(target, startX, startY, startTime) {
                 scrollbar.style.webkitTransition = 'none';
             }
         }
+
         return continues;
     }
     
     function terminator() {
+        // Snap to the integer endpoint, since position may be a subpixel value while animating
         if (paginated) {
             update(Math.round(position/viewport) * viewport);
         } else  if (position > max && constrained) {
@@ -284,6 +309,8 @@ function createTarget(target, startX, startY, startTime) {
         } else if (position < min && constrained) {
             update(min);
         }
+
+        // Hide the scrollbar
         if (scrollbar) {
             scrollbar.style.opacity = '0';
             scrollbar.style.webkitTransition = 'opacity 0.2s linear';
@@ -301,8 +328,11 @@ function createTarget(target, startX, startY, startTime) {
 function touchAnimation() {
     var time = new Date().getTime();
     
+    // Animate each of the targets
     for (var i = 0; i < touchTargets.length; ++i) {
         var target = touchTargets[i];
+
+        // Translate the x/y touch into the value needed by each of the targets
         var touch = target.filter(touchX, touchY);
         if (!target.animator(touch, time)) {
             target.terminator();
@@ -389,6 +419,8 @@ function initScrollbar(element) {
     if (!element.scrollableScrollbar) {
         var scrollbar = element.scrollableScrollbar = document.createElement('div');
         scrollbar.className = 'scrollableScrollbar';
+
+        // We hardcode this CSS here to avoid having to provide a CSS file
         scrollbar.style.cssText = [
             'position: absolute',
             'top: 0',
