@@ -17,7 +17,7 @@ html {
     position: absolute;
     left: 0;
     top: 30px;
-    bottom: 0;
+    bottom: 24px;
     width: 320px;
     background: #fff;
     overflow: hidden;
@@ -45,14 +45,21 @@ html {
     position: absolute;
     background: #222;
     left: 0;
-    top: 0;
     width: 100%;
     color: #fff;
+}
+
+.bar.top {
+    top: 0;
     padding: 7px 0;
     text-align: center;
     font-size: 12px;
     font-weight: bold;
     border-bottom: 1px solid #000;
+}
+
+.bar.bottom {
+	bottom: 0;
 }
 
 .item.touched {
@@ -144,6 +151,7 @@ addEventListener('DOMContentLoaded', function() {
 </head>
 <body>
     <div class="bar top">Scrollability Demo</div>
+    <div class="bar bottom">Footer</div>
     <div id="container">
         <div id="page" class="scrollable vertical"></div>
     </div>
