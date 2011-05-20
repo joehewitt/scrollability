@@ -35,6 +35,7 @@ var kScrollbarMargin = 2;
 
 var startX, startY, touchX, touchY, touchDown, touchMoved;
 var animationInterval = 0;
+var animationScroll = 0;
 var touchTargets = [];
 var lastTouched = null;
 
@@ -132,7 +133,11 @@ function onTouchStart(event) {
 }
 
 function onStatusTapped(event) {
-    lastTouched.scrollToTop();
+
+    if(lastTouched != null)
+        animationScroll = setInterval(lastTouched.scrollToTop, 0);
+
+    stopAnimation();
 }
 
 function createTarget(target, startX, startY, startTime) {
@@ -324,9 +329,14 @@ function createTarget(target, startX, startY, startTime) {
         }
     }
 
-    function scrollToTop() {
-       console.log("Trying to hit the top");
-       update(0, false); 
+    function scrollToTop(value) {
+      if(position+200 < 0) {
+        update(position+200, false);
+      }
+      else {
+        update(position-position, false);
+        clearInterval(animationScroll);
+      }
     }
     
     return {
