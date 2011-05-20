@@ -410,8 +410,8 @@ function stopAnimation() {
 
 function moveElement(element, x, y) {
     element.style.webkitTransform = 'translate3d('
-        +(x ? (Math.round(x)+'px') : '0')+','
-        +(y ? (Math.round(y)+'px') : '0')+','
+        +(x ? (x+'px') : '0')+','
+        +(y ? (y+'px') : '0')+','
         +'0)';        
 }
 
