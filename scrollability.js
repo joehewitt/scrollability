@@ -8,7 +8,7 @@ var kLockThreshold = 10;
 var kTouchMultiplier = 1;
 
 // Maximum velocity for motion after user releases finger
-var kMaxVelocity = 1300;
+var kMaxVelocity = 600;
 
 // Rate of deceleration after user releases finger
 var kDecelRate = 350;
@@ -410,8 +410,8 @@ function stopAnimation() {
 
 function moveElement(element, x, y) {
     element.style.webkitTransform = 'translate3d('
-        +(x ? (Math.round(x)+'px') : '0')+','
-        +(y ? (Math.round(y)+'px') : '0')+','
+        +(x ? (x+'px') : '0')+','
+        +(y ? (y+'px') : '0')+','
         +'0)';        
 }
 

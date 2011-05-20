@@ -5,6 +5,8 @@
 <title>Scrollability</title>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,maximum-scale=1.0" />
+<meta name="apple-mobile-web-app-capable" content="yes" /> 
+<meta name="apple-mobile-web-app-status-bar-style" content="black" /> 
 <style type="text/css">
 
 html {
@@ -17,7 +19,7 @@ html {
     position: absolute;
     left: 0;
     top: 30px;
-    bottom: 0;
+    bottom: 30px;
     width: 320px;
     background: #fff;
     overflow: hidden;
@@ -31,7 +33,7 @@ html {
     position: relative;
     top: -1px;
     border-top: 1px solid #ccc;
-    padding: 8px 12px;
+    padding: 9px 12px;
     font: 21px Helvetica;
     font-weight: bold;
     background: #fff;
@@ -44,18 +46,25 @@ html {
 .bar {
     position: absolute;
     background: #222;
+    padding: 7px 0;
     left: 0;
-    top: 0;
     width: 100%;
     color: #fff;
-    padding: 7px 0;
-    text-align: center;
     font-size: 12px;
     font-weight: bold;
+    text-align: center;
+}
+
+.bar.top {
+    top: 0;
     border-bottom: 1px solid #000;
 }
 
-.item.touched {
+.bar.bottom {
+    bottom: 0;
+}
+
+/*.item.touched {
     color: #fff;
     background: -webkit-gradient(
         linear,
@@ -64,7 +73,7 @@ html {
         color-stop(0, #028AF3),
         color-stop(1, #005DE6)
     );
-}
+}*/
 
 </style>
 
@@ -133,17 +142,18 @@ addEventListener('DOMContentLoaded', function() {
         item.className = 'item';
         item.innerHTML = names[i%names.length];
         page.appendChild(item);
-        if (page.offsetHeight > container.offsetHeight*8) {
+        if (page.offsetHeight > container.offsetHeight*6) {
             break;
         }
     }
 });
 
 </script>
-	
+    
 </head>
 <body>
     <div class="bar top">Scrollability Demo</div>
+    <div class="bar bottom">Footer</div>
     <div id="container">
         <div id="page" class="scrollable vertical"></div>
     </div>
