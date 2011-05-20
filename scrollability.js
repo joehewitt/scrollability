@@ -8,7 +8,7 @@ var kLockThreshold = 10;
 var kTouchMultiplier = 1;
 
 // Maximum velocity for motion after user releases finger
-var kMaxVelocity = 600;
+var kMaxVelocity = 550;
 
 // Rate of deceleration after user releases finger
 var kDecelRate = 350;
@@ -289,7 +289,7 @@ function createTarget(target, startX, startY, startTime) {
             scrollPosition += kScrollbarMargin;
             scrollbar.style.height = Math.round(height) + 'px';
 
-            moveElement(scrollbar, 0, scrollPosition);
+            moveElement(scrollbar, 0, Math.round(scrollPosition));
             
             if (touchMoved) {
                 scrollbar.style.opacity = '0.8';
