@@ -31,6 +31,9 @@ var kPageEscapeVelocity = 50;
 // Vertical margin of scrollbar
 var kScrollbarMargin = 2;
 
+// Speed of status bar tap scrolling
+var kStatScrollSpeed = 50;
+
 // ===============================================================================================
 
 var startX, startY, touchX, touchY, touchDown, touchMoved;
@@ -133,11 +136,9 @@ function onTouchStart(event) {
 }
 
 function onStatusTapped(event) {
-
-    if(lastTouched != null)
+    if(lastTouched != null && animationScroll == 0) {
         animationScroll = setInterval(lastTouched.scrollToTop, 0);
-
-    stopAnimation();
+    }
 }
 
 function createTarget(target, startX, startY, startTime) {
@@ -330,12 +331,17 @@ function createTarget(target, startX, startY, startTime) {
     }
 
     function scrollToTop(value) {
-      if(position+200 < 0) {
-        update(position+200, false);
+        if(animationInterval)
+                clearInterval(animationInterval);
+            
+      if(position+kStatScrollSpeed < 0) {
+        update(position+kStatScrollSpeed, false);
       }
       else {
         update(position-position, false);
         clearInterval(animationScroll);
+        animationScroll = 0;
+        setTimeout(terminator, 500);
       }
     }
     
