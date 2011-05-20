@@ -36,6 +36,7 @@ var kScrollbarMargin = 2;
 var startX, startY, touchX, touchY, touchDown, touchMoved;
 var animationInterval = 0;
 var touchTargets = [];
+var lastTouched = null;
 
 var scrollers = {
     'horizontal': createXTarget,
@@ -74,6 +75,8 @@ function onTouchStart(event) {
 
         animationInterval = setInterval(touchAnimation, 0);
     }
+
+    lastTouched = touchTargets[0];
 
     var d = document;
     d.addEventListener('touchmove', onTouchMove, false);
@@ -128,6 +131,10 @@ function onTouchStart(event) {
     }
 }
 
+function onStatusTapped(event) {
+    lastTouched.scrollToTop();
+}
+
 function createTarget(target, startX, startY, startTime) {
     var constrained = target.constrained;
     var paginated = target.paginated;
@@ -157,7 +164,7 @@ function createTarget(target, startX, startY, startTime) {
     if (scrollbar) {
         target.node.parentNode.appendChild(scrollbar);
     }
-    
+
     function animator(touch, time) {
         var deltaTime = 1 / (time - lastTime);
         lastTime = time;
@@ -316,12 +323,18 @@ function createTarget(target, startX, startY, startTime) {
             scrollbar.style.webkitTransition = 'opacity 0.2s linear';
         }
     }
+
+    function scrollToTop() {
+       console.log("Trying to hit the top");
+       update(0, false); 
+    }
     
     return {
         filter: target.filter,
         disable: target.disable,
         animator: animator,
-        terminator: terminator
+        terminator: terminator,
+        scrollToTop: scrollToTop
     };
 }
 
@@ -501,5 +514,6 @@ function createYTarget(element) {
 }
 
 document.addEventListener('touchstart', onTouchStart, false);
+document.addEventListener('scroll', onStatusTapped, false);
 
 })();
