@@ -289,7 +289,7 @@ function createTarget(target, startX, startY, startTime) {
             scrollPosition += kScrollbarMargin;
             scrollbar.style.height = Math.round(height) + 'px';
 
-            moveElement(scrollbar, 0, scrollPosition);
+            moveElement(scrollbar, 0, Math.round(scrollPosition));
             
             if (touchMoved) {
                 scrollbar.style.opacity = '0.8';
