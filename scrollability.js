@@ -168,7 +168,7 @@ function createTarget(target, startX, startY, startTime) {
             if (!delta) {
                 // Heuristics to prevent out delta=0 changes from making velocity=0 and
                 // stopping all motion in its tracks.  We need to distinguish when the finger
-                // has actuall stopped moving from when the timer fired too quickly.
+                // has actually stopped moving from when the timer fired too quickly.
                 if (!stillTime) {
                     stillTime = time;
                 }
