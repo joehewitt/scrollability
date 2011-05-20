@@ -5,7 +5,7 @@
 var kLockThreshold = 10;
 
 // Factor which reduces the length of motion by each move of the finger
-var kTouchMultiplier = 0.6;
+var kTouchMultiplier = 1;
 
 // Maximum velocity for motion after user releases finger
 var kMaxVelocity = 1300;
