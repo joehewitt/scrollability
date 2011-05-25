@@ -31,7 +31,7 @@ var kPageEscapeVelocity = 50;
 // Vertical margin of scrollbar
 var kScrollbarMargin = 2;
 
-var isMobile = navigator.userAgent.match(/iPhone|iPad|Android/);
+var isMobile = navigator.userAgent.match(/iPhone|iPad|iPod|Android/);
 var startEventName = isMobile ? 'touchstart' : 'mousedown';
 var moveEventName = isMobile ? 'touchmove' : 'mousemove';
 var endEventName = isMobile ? 'touchend' : 'mouseup';
