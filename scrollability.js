@@ -31,6 +31,11 @@ var kPageEscapeVelocity = 50;
 // Vertical margin of scrollbar
 var kScrollbarMargin = 2;
 
+var isMobile = navigator.userAgent.match(/iPhone|iPad|Android/);
+var startEventName = isMobile ? 'touchstart' : 'mousedown';
+var moveEventName = isMobile ? 'touchmove' : 'mousemove';
+var endEventName = isMobile ? 'touchend' : 'mouseup';
+
 // ===============================================================================================
 
 var startX, startY, touchX, touchY, touchDown, touchMoved;
@@ -55,9 +60,9 @@ function onTouchStart(event) {
     
     stopAnimation();
     
-    var touch = event.touches[0];
-    touchX = startX = touch.clientX;
-    touchY = startY = touch.clientY;
+    var touch = isMobile ? event.touches[0] : event;
+    touchX = startX = isMobile ? touch.clientX : touch.pageX;
+    touchY = startY = isMobile ? touch.clientY : touch.pageY;
     touchDown = true;
     touchMoved = false;
     touchTargets = [];
@@ -76,8 +81,8 @@ function onTouchStart(event) {
     }
 
     var d = document;
-    d.addEventListener('touchmove', onTouchMove, false);
-    d.addEventListener('touchend', onTouchEnd, false);
+    d.addEventListener(moveEventName, onTouchMove, false);
+    d.addEventListener(endEventName, onTouchEnd, false);
 
     function onTouchMove(event) {
         event.preventDefault();
@@ -91,9 +96,9 @@ function onTouchStart(event) {
             releaseTouched(touched);
             touched = null;
         }
-        var touch = event.touches[0];
-        touchX = touch.clientX;
-        touchY = touch.clientY;
+        var touch = isMobile ? event.touches[0] : event;
+        touchX = isMobile ? touch.clientX : touch.pageX;
+        touchY = isMobile ? touch.clientY : touch.pageY;
 
         // Reduce the candidates down to the one whose axis follows the finger most closely
         if (touchTargets.length > 1) {
@@ -122,8 +127,8 @@ function onTouchStart(event) {
             releaseTouched(touched);
         }
         
-        d.removeEventListener('touchmove', onTouchMove, false);
-        d.removeEventListener('touchend', onTouchEnd, false);
+        d.removeEventListener(moveEventName, onTouchMove, false);
+        d.removeEventListener(endEventName, onTouchEnd, false);
         touchDown = false;
     }
 }
@@ -500,6 +505,6 @@ function createYTarget(element) {
     };    
 }
 
-document.addEventListener('touchstart', onTouchStart, false);
+document.addEventListener(startEventName, onTouchStart, false);
 
 })();
