@@ -442,8 +442,9 @@ function initScrollbar(element) {
     return element.scrollableScrollbar;
 }
 
-function easeOutExpo(t, b, c, d) {
-    return (t==d) ? b+c : c * (-Math.pow(2, -10 * t/d) + 1) + b;
+function easeOutExpo(step_index, originalPosition, positionDelta, steps) {
+    var easeOutFactor = step_index === steps ? 1 : 1 - Math.pow(2, -10 * step_index/steps); // logarithmic curve
+    return originalPosition + positionDelta * easeOutFactor;
 }
 
 // *************************************************************************************************
