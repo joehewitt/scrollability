@@ -43,6 +43,11 @@ var scrollers = {
 };
 
 function onTouchStart(event) {
+    var candidates = getTouchTargets(event.target);
+    if (!candidates.length) {
+        return true;
+    }
+    
     event.preventDefault();
     
     var touched = null;
@@ -63,17 +68,16 @@ function onTouchStart(event) {
     touchTargets = [];
 
     var startTime = new Date().getTime();
-    var candidates = getTouchTargets(event.target);
-    if (candidates.length) {
-        for (var i = 0; i < candidates.length; ++i) {
-            var target = createTarget(candidates[i], touchX, touchY, startTime);
-            if (target) {
-                touchTargets.push(target);
-            }
-        }
 
-        animationInterval = setInterval(touchAnimation, 0);
+    for (var i = 0; i < candidates.length; ++i) {
+        var target = createTarget(candidates[i], touchX, touchY, startTime);
+        if (target) {
+            touchTargets.push(target);
+        }
     }
+
+    animationInterval = setInterval(touchAnimation, 0);
+    
 
     var d = document;
     d.addEventListener('touchmove', onTouchMove, false);
