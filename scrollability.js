@@ -31,6 +31,11 @@ var kPageEscapeVelocity = 50;
 // Vertical margin of scrollbar
 var kScrollbarMargin = 2;
 
+var isMobile = navigator.userAgent.match(/iPhone|iPad|iPod|Android/);
+var startEventName = isMobile ? 'touchstart' : 'mousedown';
+var moveEventName = isMobile ? 'touchmove' : 'mousemove';
+var endEventName = isMobile ? 'touchend' : 'mouseup';
+
 // ===============================================================================================
 
 var startX, startY, touchX, touchY, touchDown, touchMoved;
@@ -60,9 +65,9 @@ function onTouchStart(event) {
     
     stopAnimation();
     
-    var touch = event.touches[0];
-    touchX = startX = touch.clientX;
-    touchY = startY = touch.clientY;
+    var touch = isMobile ? event.touches[0] : event;
+    touchX = startX = isMobile ? touch.clientX : touch.pageX;
+    touchY = startY = isMobile ? touch.clientY : touch.pageY;
     touchDown = true;
     touchMoved = false;
     touchTargets = [];
@@ -80,8 +85,8 @@ function onTouchStart(event) {
     
 
     var d = document;
-    d.addEventListener('touchmove', onTouchMove, false);
-    d.addEventListener('touchend', onTouchEnd, false);
+    d.addEventListener(moveEventName, onTouchMove, false);
+    d.addEventListener(endEventName, onTouchEnd, false);
 
     function onTouchMove(event) {
         event.preventDefault();
@@ -95,9 +100,9 @@ function onTouchStart(event) {
             releaseTouched(touched);
             touched = null;
         }
-        var touch = event.touches[0];
-        touchX = touch.clientX;
-        touchY = touch.clientY;
+        var touch = isMobile ? event.touches[0] : event;
+        touchX = isMobile ? touch.clientX : touch.pageX;
+        touchY = isMobile ? touch.clientY : touch.pageY;
 
         // Reduce the candidates down to the one whose axis follows the finger most closely
         if (touchTargets.length > 1) {
@@ -126,8 +131,8 @@ function onTouchStart(event) {
             releaseTouched(touched);
         }
         
-        d.removeEventListener('touchmove', onTouchMove, false);
-        d.removeEventListener('touchend', onTouchEnd, false);
+        d.removeEventListener(moveEventName, onTouchMove, false);
+        d.removeEventListener(endEventName, onTouchEnd, false);
         touchDown = false;
     }
 }
@@ -441,8 +446,9 @@ function initScrollbar(element) {
     return element.scrollableScrollbar;
 }
 
-function easeOutExpo(t, b, c, d) {
-    return (t==d) ? b+c : c * (-Math.pow(2, -10 * t/d) + 1) + b;
+function easeOutExpo(step_index, originalPosition, positionDelta, steps) {
+    var easeOutFactor = step_index === steps ? 1 : 1 - Math.pow(2, -10 * step_index/steps); // logarithmic curve
+    return originalPosition + positionDelta * easeOutFactor;
 }
 
 // *************************************************************************************************
@@ -504,6 +510,6 @@ function createYTarget(element) {
     };    
 }
 
-document.addEventListener('touchstart', onTouchStart, false);
+document.addEventListener(startEventName, onTouchStart, false);
 
 })();
