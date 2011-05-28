@@ -31,10 +31,10 @@ var kPageEscapeVelocity = 50;
 // Vertical margin of scrollbar
 var kScrollbarMargin = 2;
 
-var isMobile = navigator.userAgent.match(/iPhone|iPad|iPod|Android/);
-var startEventName = isMobile ? 'touchstart' : 'mousedown';
-var moveEventName = isMobile ? 'touchmove' : 'mousemove';
-var endEventName = isMobile ? 'touchend' : 'mouseup';
+var isTouchSupported = "ontouchstart" in window;
+var startEventName =isTouchSupported ? 'touchstart' : 'mousedown';
+var moveEventName = isTouchSupported ? 'touchmove' : 'mousemove';
+var endEventName = isTouchSupported ? 'touchend' : 'mouseup';
 
 // ===============================================================================================
 
@@ -60,9 +60,9 @@ function onTouchStart(event) {
     
     stopAnimation();
     
-    var touch = isMobile ? event.touches[0] : event;
-    touchX = startX = isMobile ? touch.clientX : touch.pageX;
-    touchY = startY = isMobile ? touch.clientY : touch.pageY;
+    var touch = isTouchSupported ? event.touches[0] : event;
+    touchX = startX = isTouchSupported ? touch.clientX : touch.pageX;
+    touchY = startY = isTouchSupported ? touch.clientY : touch.pageY;
     touchDown = true;
     touchMoved = false;
     touchTargets = [];
@@ -96,9 +96,9 @@ function onTouchStart(event) {
             releaseTouched(touched);
             touched = null;
         }
-        var touch = isMobile ? event.touches[0] : event;
-        touchX = isMobile ? touch.clientX : touch.pageX;
-        touchY = isMobile ? touch.clientY : touch.pageY;
+        var touch = isTouchSupported ? event.touches[0] : event;
+        touchX = isTouchSupported ? touch.clientX : touch.pageX;
+        touchY = isTouchSupported ? touch.clientY : touch.pageY;
 
         // Reduce the candidates down to the one whose axis follows the finger most closely
         if (touchTargets.length > 1) {
