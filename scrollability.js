@@ -31,10 +31,16 @@ var kPageEscapeVelocity = 50;
 // Vertical margin of scrollbar
 var kScrollbarMargin = 2;
 
+_requestAnimationFrame = (function() {
+    var poormansRAF = function(animate) {
+        window.setTimeout(animate, 1000 / 60);
+    }
+    return  window.requestAnimationFrame || window.webkitRequestAnimationFrame || poormansRAF;
+})();
 // ===============================================================================================
 
 var startX, startY, touchX, touchY, touchDown, touchMoved;
-var animationInterval = 0;
+var inAnimation = false;
 var touchTargets = [];
 
 var scrollers = {
@@ -72,7 +78,8 @@ function onTouchStart(event) {
             }
         }
 
-        animationInterval = setInterval(touchAnimation, 0);
+        _requestAnimationFrame(touchAnimation);
+        inAnimation = true;
     }
 
     var d = document;
@@ -326,6 +333,9 @@ function createTarget(target, startX, startY, startTime) {
 }
 
 function touchAnimation() {
+    if (!inAnimation) {
+        return
+    }
     var time = new Date().getTime();
     
     // Animate each of the targets
@@ -343,6 +353,7 @@ function touchAnimation() {
     if (!touchTargets.length) {
         stopAnimation();
     }
+    _requestAnimationFrame(touchAnimation);
 }
 
 // *************************************************************************************************
@@ -396,9 +407,8 @@ function releaseTouched(touched) {
 }
 
 function stopAnimation() {
-    if (animationInterval) {
-        clearInterval(animationInterval);
-        animationInterval = 0;
+    if (inAnimation) {
+        inAnimation = false;
 
         for (var i = 0; i < touchTargets.length; ++i) {
             var target = touchTargets[i];
