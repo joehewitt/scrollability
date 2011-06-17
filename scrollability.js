@@ -413,7 +413,7 @@ function wrapTarget(target, startX, startY, startTime) {
         // Hide the scrollbar
         if (scrollbar) {
             scrollbar.style.opacity = '0';
-            scrollbar.style.webkitTransition = 'opacity 0.2s linear';
+            scrollbar.style.webkitTransition = 'opacity 0.33s linear';
         }
         if (delegate && delegate.onEndScroll) {
             delegate.onEndScroll();
@@ -561,7 +561,6 @@ function initScrollbar(element) {
             'opacity: 0',
             '-webkit-border-radius: 4px 5px',
             '-webkit-transform: translate3d(0,0,0)',
-            '-webkit-transition: opacity 0.15s linear',
             '-webkit-box-sizing: border-box',
             'z-index: 2147483647',
         ].join(';');
