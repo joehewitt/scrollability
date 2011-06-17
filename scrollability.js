@@ -31,7 +31,8 @@ var kPageEscapeVelocity = 50;
 // Vertical margin of scrollbar
 var kScrollbarMargin = 2;
 
-var kScrollToTime = 12;
+// Time to scroll to top
+var kScrollToTopTime = 200;
 
 var isWebkit = "webkitTransform" in document.documentElement.style;
 var isFirefox = "MozTransform" in document.documentElement.style;
@@ -59,8 +60,18 @@ window.scrollability = {
         }            
     },
 
+    scrollToTop: function() {
+        var scrollables = document.getElementsByClassName('scrollable');
+        if (scrollables.length) {
+            var scrollable = scrollables[0];
+            if (scrollable.className.indexOf('vertical') != -1) {
+                scrollability.scrollTo(scrollable, 0, 0, kScrollToTopTime);
+            }
+        }
+    
+    },
+    
     scrollTo: function(element, x, y, animationTime, muteDelegate) {
-        var t = 0;
         stopAnimation();
 
         var target = createTargetForElement(element);
@@ -74,10 +85,16 @@ window.scrollability = {
             if (animationTime) {
                 var orig = element[target.key];
                 var dest = target.filter(x, y);
-
+                var dir = dest - orig;
+                var startTime = new Date().getTime();
                 animationInterval = setInterval(function() {
-                    target.updater(orig + ((dest-orig) * (t/animationTime)));
-                    if (++t > animationTime) {
+                    var d = new Date().getTime() - startTime;
+                    var pos = orig + ((dest-orig) * (d/animationTime));
+                    if ((dir < 0 && pos < dest) || (dir > 0 && pos > dest)) {
+                        pos = dest;
+                    }
+                    target.updater(pos);
+                    if (pos == dest) {
                         clearInterval(animationInterval);
                         setTimeout(stopAnimation, 200);
                     }
@@ -99,13 +116,7 @@ function onScroll(event) {
         if (justChangedOrientation) {
             justChangedOrientation = false;
         } else if (isTouch) {
-            var scrollables = document.getElementsByClassName('scrollable');
-            if (scrollables.length) {
-                var scrollable = scrollables[0];
-                if (scrollable.className.indexOf('vertical') != -1) {
-                    scrollability.scrollTo(scrollable, 0, 0, kScrollToTime);
-                }
-            }
+            scrollability.scrollToTop();
         }        
     });
 }
@@ -559,7 +570,7 @@ function initScrollbar(element) {
             'width: 5px',
             'min-height: 4px',
             'background: rgba(40, 40, 40, 0.6)',
-            'border: 1px solid rgba(255, 255, 255, 0.075)',
+            'border: 1px solid rgba(235, 235, 235, 0.1)',
             'opacity: 0',
             '-webkit-border-radius: 4px 5px',
             '-webkit-transform: translate3d(0,0,0)',
