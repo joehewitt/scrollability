@@ -35,6 +35,7 @@ var kScrollToTime = 12;
 
 var isWebkit = "webkitTransform" in document.documentElement.style;
 var isFirefox = "MozTransform" in document.documentElement.style;
+var isTouch = "ontouchstart" in window;
 
 // ===============================================================================================
 
@@ -71,10 +72,11 @@ window.scrollability = {
             touchTargets = [target];
             touchMoved = true;
             if (animationTime) {
-                // XXXjoe Support horizontal if that is the axis of element
                 var orig = element[target.key];
+                var dest = target.filter(x, y);
+
                 animationInterval = setInterval(function() {
-                    target.updater(orig + ((y-orig) * (t/animationTime)));
+                    target.updater(orig + ((dest-orig) * (t/animationTime)));
                     if (++t > animationTime) {
                         clearInterval(animationInterval);
                         setTimeout(stopAnimation, 200);
@@ -96,7 +98,7 @@ function onScroll(event) {
     setTimeout(function() {
         if (justChangedOrientation) {
             justChangedOrientation = false;
-        } else {
+        } else if (isTouch) {
             var scrollables = document.getElementsByClassName('scrollable');
             if (scrollables.length) {
                 var scrollable = scrollables[0];
