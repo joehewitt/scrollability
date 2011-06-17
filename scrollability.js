@@ -8,7 +8,7 @@ var kLockThreshold = 10;
 var kTouchMultiplier = 1;
 
 // Maximum velocity for motion after user releases finger
-var kMaxVelocity = 720 / devicePixelRatio;
+var kMaxVelocity = 720 / (window.devicePixelRatio||1);
 
 // Rate of deceleration after user releases finger
 var kDecelRate = 350;
@@ -17,23 +17,28 @@ var kDecelRate = 350;
 var kBounceLimit = 0.5;
 
 // Rate of deceleration when content has overscrolled and is slowing down before bouncing back
-var kBounceDecelRate = 300;
+var kBounceDecelRate = 600;
 
 // Duration of animation when bouncing back
 var kBounceTime = 90;
 
 // Percentage of viewport which must be scrolled past in order to snap to the next page
-var kPageLimit = 0.05;
+var kPageLimit = 0.3;
 
 // Velocity at which the animation will advance to the next page
 var kPageEscapeVelocity = 50;
 
 // Vertical margin of scrollbar
-var kScrollbarMargin = 2;
+var kScrollbarMargin = 1;
+
+var kScrollToTime = 20;
+
+var isWebkit = "webkitTransform" in document.documentElement.style;
+var isFirefox = "MozTransform" in document.documentElement.style;
 
 // ===============================================================================================
 
-var startX, startY, touchX, touchY, touchDown, touchMoved;
+var startX, startY, touchX, touchY, touchDown, touchMoved, justChangedOrientation;
 var animationInterval = 0;
 var touchTargets = [];
 
@@ -42,8 +47,59 @@ var scrollers = {
     'vertical': createYTarget
 };
 
+window.scrollability = {
+    globalScrolling: false,
+    scrollers: scrollers,
+    scrollTo: function(element, x, y, animationTime) {
+        var t = 0;
+        stopAnimation();
+
+        if (animationTime) {
+            var origX = element.scrollable_horizontal||0;
+            var origY = element.scrollable_vertical||0;
+            animationInterval = setInterval(function() {
+                var xx = element.scrollable_horizontal = easeOutExpo(t, origX, x-origX, animationTime);
+                var yy = element.scrollable_vertical = easeOutExpo(t, origY, y-origY, animationTime);
+                moveElement(element, xx, yy);
+                if (++t == animationTime) {
+                    stopAnimation();
+                    moveElement(element, x, y);
+                }
+            }, 20);
+        } else {
+            element.scrollable_horizontal = x;
+            element.scrollable_vertical = y;
+            moveElement(element, x, y);
+        }
+    }
+};
+
+function onScroll(event) {
+    setTimeout(function() {
+        if (justChangedOrientation) {
+            justChangedOrientation = false;
+        } else {
+            var scrollables = document.getElementsByClassName('scrollable');
+            if (scrollables.length) {
+                var scrollable = scrollables[0];
+                if (scrollable.className.indexOf('vertical') != -1) {
+                    scrollability.scrollTo(scrollable, 0, 0, kScrollToTime);
+                }
+            }
+        }        
+    });
+}
+
+function onOrientationChange(event) {
+    justChangedOrientation = true;
+}
+
 function onTouchStart(event) {
-    event.preventDefault();
+    var touch = event.touches[0];
+    var candidates = getTouchTargets(event.target);
+    if (!candidates.length && !scrollability.globalScrolling) {
+        return true;
+    }
     
     var touched = null;
 
@@ -55,7 +111,6 @@ function onTouchStart(event) {
     
     stopAnimation();
     
-    var touch = event.touches[0];
     touchX = startX = touch.clientX;
     touchY = startY = touch.clientY;
     touchDown = true;
@@ -63,17 +118,16 @@ function onTouchStart(event) {
     touchTargets = [];
 
     var startTime = new Date().getTime();
-    var candidates = getTouchTargets(event.target);
-    if (candidates.length) {
-        for (var i = 0; i < candidates.length; ++i) {
-            var target = createTarget(candidates[i], touchX, touchY, startTime);
-            if (target) {
-                touchTargets.push(target);
-            }
-        }
 
-        animationInterval = setInterval(touchAnimation, 0);
+    for (var i = 0; i < candidates.length; ++i) {
+        var target = createTarget(candidates[i], touchX, touchY, startTime);
+        if (target) {
+            touchTargets.push(target);
+        }
     }
+
+    animationInterval = setInterval(touchAnimation, 0);
+    
 
     var d = document;
     d.addEventListener('touchmove', onTouchMove, false);
@@ -129,6 +183,7 @@ function onTouchStart(event) {
 }
 
 function createTarget(target, startX, startY, startTime) {
+    var delegate = target.delegate;
     var constrained = target.constrained;
     var paginated = target.paginated;
     var viewport = target.viewport || 0;
@@ -138,20 +193,34 @@ function createTarget(target, startX, startY, startTime) {
     var max = target.max;
     var absMin = min;
     var absMax = Math.round(max/viewport)*viewport;
+    var pageSpacing = 0;
     var velocity = 0;
     var decelerating = 0;
     var decelOrigin, decelDelta;
     var bounceLimit = target.bounce;
     var pageLimit = viewport * kPageLimit;
-    var lastTouch = target.filter(startX, startY);
+    var lastTouch = startTouch = target.filter(startX, startY);
     var lastTime = startTime;
     var stillTime = 0;
     var stillThreshold = 20;
     var snapped = false;
-    
+    var locked = false;
+
     if (paginated) {
-        var xposition = Math.round(position/viewport) * viewport;
-        min = max = Math.round(xposition + absMax);
+        var excess = Math.round(Math.abs(absMin) % viewport);
+        var pageCount = ((Math.abs(absMin)-excess) / viewport)+1;
+        var pageSpacing = excess / pageCount;
+
+        var positionSpacing = Math.round(position) % viewport;
+        var pagePosition = Math.round((position-positionSpacing)/viewport) * viewport;
+        min = max = Math.round(pagePosition + absMax)+positionSpacing;
+        absMin += pageSpacing;
+    }
+
+    if (delegate && delegate.onStartScroll) {
+        if (!delegate.onStartScroll()) {
+            return null;
+        }
     }
 
     if (scrollbar) {
@@ -178,6 +247,13 @@ function createTarget(target, startX, startY, startTime) {
             } else {
                 stillTime = 0;
             }
+
+            if (!locked && Math.abs(touch - startTouch) > kLockThreshold) {
+                locked = true;
+                if (delegate && delegate.onLockScroll) {
+                    delegate.onLockScroll(target.key);
+                }
+            }
             
             lastTouch = touch;
             velocity = delta / deltaTime;
@@ -198,13 +274,23 @@ function createTarget(target, startX, startY, startTime) {
                 if (Math.abs(position - max) > pageLimit || Math.abs(velocity) > kPageEscapeVelocity) {
                     if (position > max) {
                         if (max != absMax) {
-                            max += viewport;
-                            min += viewport;
+                            max += viewport+pageSpacing;
+                            min += viewport+pageSpacing;
+                            if (delegate && delegate.onScrollPage) {
+                                var totalSpacing = min % viewport;
+                                var page = -Math.round((position+viewport-totalSpacing)/viewport);
+                                delegate.onScrollPage(page, -1);
+                            }
                         }
                     } else {
                         if (min != absMin) {
-                            max -= viewport;
-                            min -= viewport;
+                            max -= viewport+pageSpacing;
+                            min -= viewport+pageSpacing;
+                            if (delegate && delegate.onScrollPage) {
+                                var totalSpacing = min % viewport;
+                                var page = -Math.round((position-viewport-totalSpacing)/viewport);
+                                delegate.onScrollPage(page, 1);
+                            }
                         }
                     }
                 }
@@ -271,10 +357,14 @@ function createTarget(target, startX, startY, startTime) {
         target.node[target.key] = position;
         target.update(target.node, position);
 
+        if (delegate && delegate.onScroll) {
+            delegate.onScroll(position);
+        }
+
         // Update the scrollbar
         var range = -min - max;
         if (scrollbar && viewport < range) {
-            var viewable = viewport - kScrollbarMargin*2;
+            var viewable = viewport - kScrollbarMargin*4;
             var height = (viewable/range) * viewable;
             var scrollPosition = 0;
             if (position > max) {
@@ -292,7 +382,7 @@ function createTarget(target, startX, startY, startTime) {
             moveElement(scrollbar, 0, Math.round(scrollPosition));
             
             if (touchMoved) {
-                scrollbar.style.opacity = '0.8';
+                scrollbar.style.opacity = '1';
                 scrollbar.style.webkitTransition = 'none';
             }
         }
@@ -303,7 +393,8 @@ function createTarget(target, startX, startY, startTime) {
     function terminator() {
         // Snap to the integer endpoint, since position may be a subpixel value while animating
         if (paginated) {
-            update(Math.round(position/viewport) * viewport);
+            var pageIndex = Math.round(position/viewport);
+            update(pageIndex * (viewport+pageSpacing));
         } else  if (position > max && constrained) {
             update(max);
         } else if (position < min && constrained) {
@@ -315,9 +406,13 @@ function createTarget(target, startX, startY, startTime) {
             scrollbar.style.opacity = '0';
             scrollbar.style.webkitTransition = 'opacity 0.2s linear';
         }
+        if (delegate && delegate.onEndScroll) {
+            delegate.onEndScroll();
+        }
     }
     
     return {
+        node: target.node,
         filter: target.filter,
         disable: target.disable,
         animator: animator,
@@ -349,6 +444,16 @@ function touchAnimation() {
 
 function getTouchTargets(node) {
     var targets = [];
+    findTargets(node, targets);
+
+    var candidates = document.querySelectorAll('.scrollable.global');
+    for (var j = 0; j < candidates.length; ++j) {
+        findTargets(candidates[j], targets);
+    }
+    return targets;
+}
+
+function findTargets(node, targets) {
     while (node) {
         if (node.nodeType == 1) {
             var classes = node.className.split(' ');
@@ -364,7 +469,17 @@ function getTouchTargets(node) {
                             node[target.key] = target.initial ? target.initial(node) : 0;
                         }
 
-                        targets.push(target);
+                        // Look out for duplicates
+                        var exists = false;
+                        for (var j = 0; j < targets.length; ++j) {
+                            if (targets[j].node == target.node) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            targets.push(target);                            
+                        }
                     }
                 }
                 if (classes.indexOf('exclusive') != -1) {
@@ -372,9 +487,8 @@ function getTouchTargets(node) {
                 }
             }
         }
-        node = node.parentNode;
+       node = node.parentNode;
     }
-    return targets;
 }
 
 function setTouched(target) {
@@ -409,10 +523,16 @@ function stopAnimation() {
 }
 
 function moveElement(element, x, y) {
-    element.style.webkitTransform = 'translate3d('
+    if (isWebkit) {
+        element.style.webkitTransform = 'translate3d('
         +(x ? (x+'px') : '0')+','
         +(y ? (y+'px') : '0')+','
-        +'0)';        
+        +'0)';      
+    } else if (isFirefox) {
+        element.style.MozTransform = 'translate('
+        +(x ? (x+'px') : '0')+','
+        +(y ? (y+'px') : '0')+')';      
+    }
 }
 
 function initScrollbar(element) {
@@ -424,14 +544,16 @@ function initScrollbar(element) {
         scrollbar.style.cssText = [
             'position: absolute',
             'top: 0',
-            'right: 2px',
+            'right: 1px',
             'width: 5px',
-            'min-height: 6px',
-            'background: #666',
+            'min-height: 5px',
+            'background: rgba(40, 40, 40, 0.8)',
+            'border: 1px solid rgba(220, 220, 220, 0.35)',
             'opacity: 0',
-            '-webkit-border-radius: 2px 3px',
+            '-webkit-border-radius: 3px 3px',
             '-webkit-transform: translate3d(0,0,0)',
-            '-webkit-transition: opacity 0.15s linear'
+            '-webkit-transition: opacity 0.15s linear',
+            'z-index: 2147483647',
         ].join(';');
     }
     return element.scrollableScrollbar;
@@ -452,6 +574,7 @@ function createXTarget(element) {
         viewport: parent.offsetWidth,
         bounce: parent.offsetWidth * kBounceLimit,
         constrained: true,
+        delegate: element.scrollDelegate,
         
         filter: function(x, y) {
             return x; 
@@ -466,7 +589,7 @@ function createXTarget(element) {
         },
 
         update: function(element, position) {
-            moveElement(element, position, element.scrollable_vertical);
+            moveElement(element, position, element.scrollable_vertical||0);
         }
     };
 }
@@ -481,6 +604,7 @@ function createYTarget(element) {
         viewport: parent.offsetHeight,
         bounce: parent.offsetHeight * kBounceLimit,
         constrained: true,
+        delegate: element.scrollDelegate,
         
         filter: function(x, y) {
             return y;
@@ -495,11 +619,13 @@ function createYTarget(element) {
         },
         
         update: function(element, position) {
-            moveElement(element, element.scrollable_horizontal, position);
+            moveElement(element, element.scrollable_horizontal||0, position);
         }
     };    
 }
 
 document.addEventListener('touchstart', onTouchStart, false);
+document.addEventListener('scroll', onScroll, false);
+document.addEventListener('orientationchange', onOrientationChange, false);
 
 })();
