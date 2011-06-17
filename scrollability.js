@@ -77,7 +77,7 @@ window.scrollability = {
                     target.updater(orig + ((y-orig) * (t/animationTime)));
                     if (++t > animationTime) {
                         clearInterval(animationInterval);
-                        setTimeout(stopAnimation, 100);
+                        setTimeout(stopAnimation, 300);
                     }
                 }, 20);
             } else {
