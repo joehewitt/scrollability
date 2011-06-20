@@ -29,7 +29,7 @@ var kPageLimit = 0.3;
 var kPageEscapeVelocity = 50;
 
 // Vertical margin of scrollbar
-var kScrollbarMargin = 2;
+var kScrollbarMargin = 1;
 
 // Time to scroll to top
 var kScrollToTopTime = 200;
@@ -390,10 +390,10 @@ function wrapTarget(target, startX, startY, startTime) {
             var height = (viewable/range) * viewable;
             var scrollPosition = 0;
             if (position > max) {
-                height = Math.max(height - (position-max), 5);
+                height = Math.max(height - (position-max), 7);
                 scrollPosition = 0;
             } else if (position < min) {
-                height = Math.max(height - (min - position), 5);
+                height = Math.max(height - (min - position), 7);
                 scrollPosition = (viewable-height);
             } else {
                 scrollPosition = Math.round((Math.abs(position) / range) * (viewable-height));
@@ -566,15 +566,13 @@ function initScrollbar(element) {
         scrollbar.style.cssText = [
             'position: absolute',
             'top: 0',
-            'right: 2px',
-            'width: 5px',
-            'min-height: 4px',
-            'background: rgba(40, 40, 40, 0.6)',
-            'border: 1px solid rgba(235, 235, 235, 0.1)',
+            'right: 1px',
+            'width: 7px',
+            'min-height: 7px',
             'opacity: 0',
-            '-webkit-border-radius: 4px 5px',
             '-webkit-transform: translate3d(0,0,0)',
             '-webkit-box-sizing: border-box',
+            '-webkit-border-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAUhJREFUeNp0Ur1OwzAQtt1CaZQQgUjDhuicrEwoqjJlzpBAXoIHywtkcwfECyQPwIgKQkoyFJWq5k6cJcsUS5/sO993/1wpxazjAU4BJyR/A3aA0TSaGu85kbSO0y0AM/pH8lYr8ZwBLpBUluVtGIaPjuM8IYIgeEAdObwkB4xTqgv8iOP4vuu6lZEFRkUDHkWRbNv2mVJ/x4g+1pPn+RJICRlzk4Q3/lVVdUP1nwtqgpJSYqQJGbMj96RpmhXJM01kwzBcWU2x36zv+wXppro5TAihvat/HCjxa6R0V7FY5rruhx3BTtfzvDeS95rI0zSVcB+MpijL0SHLsjW9d3ocIRZvjINbKSsYx5rGsQdsNHFOC8CKolhCh+/GcbxG2ff9TZIkL3Vdv5KjT8AXN3b12MqZi4yRBiTZu7olmEvOacH/LPmPAAMA2bZzzeYUC40AAAAASUVORK5CYII=") 6 2 6 2 / 3px 1px 3px 1px round round',
             'z-index: 2147483647',
         ].join(';');
     }
