@@ -20,10 +20,11 @@ var kBounceLimit = 0.5;
 var kBounceDecelRate = 600;
 
 // Duration of animation when bouncing back
-var kBounceTime = 90;
+var kBounceTime = 80;
+var kPageBounceTime = 60;
 
 // Percentage of viewport which must be scrolled past in order to snap to the next page
-var kPageLimit = 0.3;
+var kPageLimit = 0.5;
 
 // Velocity at which the animation will advance to the next page
 var kPageEscapeVelocity = 50;
@@ -49,7 +50,7 @@ var scrollers = {
     'vertical': createYTarget
 };
 
-window.scrollability = {
+var scrollability = {
     globalScrolling: false,
     scrollers: scrollers,
 
@@ -106,6 +107,16 @@ window.scrollability = {
         }
     }
 };
+
+
+function init() {
+    window.scrollability = scrollability;
+
+    document.addEventListener('touchstart', onTouchStart, false);
+    document.addEventListener('scroll', onScroll, false);
+    document.addEventListener('orientationchange', onOrientationChange, false);
+    window.addEventListener('load', onLoad, false);
+}
 
 function onLoad() {
     scrollability.flashIndicators();
@@ -218,6 +229,7 @@ function wrapTarget(target, startX, startY, startTime) {
     var velocity = 0;
     var decelerating = 0;
     var decelOrigin, decelDelta;
+    var bounceTime = paginated ? kPageBounceTime : kBounceTime;
     var bounceLimit = target.bounce;
     var pageLimit = viewport * kPageLimit;
     var lastTouch = startTouch = target.filter(startX, startY);
@@ -280,10 +292,10 @@ function wrapTarget(target, startX, startY, startTime) {
             velocity = delta / deltaTime;
             
             // Apply resistance along the edges
-            if (position > max && constrained) {
+            if (position > max && absMax == max && constrained) {
                 var excess = position - max;
                 velocity *= (1.0 - excess / bounceLimit);
-            } else if (position < min && constrained) {
+            } else if (position < min && absMin == min && constrained) {
                 var excess = min - position;
                 velocity *= (1.0 - excess / bounceLimit);
             }
@@ -331,8 +343,8 @@ function wrapTarget(target, startX, startY, startTime) {
                         decelDelta = max - position;
                     }
 
-                    position = easeOutExpo(decelerating, decelOrigin, decelDelta, kBounceTime);
-                    return update(position, ++decelerating <= kBounceTime && Math.floor(position) > max);
+                    position = easeOutExpo(decelerating, decelOrigin, decelDelta, bounceTime);
+                    return update(position, ++decelerating <= bounceTime && Math.floor(position) > max);
                 }
             } else if (position < min && constrained) {
                 if (velocity < 0) {
@@ -347,8 +359,8 @@ function wrapTarget(target, startX, startY, startTime) {
                         decelOrigin = position;
                         decelDelta = min - position;
                     }
-                    position = easeOutExpo(decelerating, decelOrigin, decelDelta, kBounceTime);
-                    return update(position, ++decelerating <= kBounceTime && Math.ceil(position) < min);
+                    position = easeOutExpo(decelerating, decelOrigin, decelDelta, bounceTime);
+                    return update(position, ++decelerating <= bounceTime && Math.ceil(position) < min);
                 }
             } else {
                 // Slowing down
@@ -644,9 +656,6 @@ function createYTarget(element) {
     };    
 }
 
-document.addEventListener('touchstart', onTouchStart, false);
-document.addEventListener('scroll', onScroll, false);
-document.addEventListener('orientationchange', onOrientationChange, false);
-window.addEventListener('load', onLoad, false);
+init();
 
 })();
