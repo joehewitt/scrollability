@@ -1,0 +1,18 @@
+{
+  "name": "scrollability",
+  "description": "Native-like scrolling for the web",
+  "url": "http://github.com/joehewitt/scrollability",
+  "repository": {
+      "type": "git",
+      "url" : "http://github.com/joehewitt/scrollability.git"
+  },
+  "keywords": [],
+  "author": "Joe Hewitt <joe@joehewitt.com>",
+  "contributors": [],
+  "dependencies": {      
+  },
+  "version": "0.0.1",
+  "main": "./scrollability",
+  "directories": {},
+  "engines": { "node": ">=0.4.0" }
+}
