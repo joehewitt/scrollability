@@ -53,13 +53,14 @@ var scrollers = {
 
 window.scrollability = {
     globalScrolling: false,
-    scrollers: scrollers,
     useOnScrollEvt: false,
+    scrollers: scrollers,
 
     flashIndicators: function() {
-        var scrollables = document.querySelectorAll('.scrollable.vertical');
-        for (var i = 0; i < scrollables.length; ++i) {
-            scrollability.scrollTo(scrollables[i], 0, 0, 20, true);
+        var i, scrollables = document.querySelectorAll('.scrollable.vertical');
+        for (i = 0; i < scrollables.length; ++i) {
+            var scrollable = scrollables[i];
+            scrollability.scrollToCeiling(scrollable);
         }
     },
     
@@ -71,6 +72,11 @@ window.scrollability = {
                 scrollability.scrollTo(scrollable, 0, 0, kScrollToTopTime);
             }
         }
+    },
+    
+    scrollToCeiling: function(element) {
+        var target = createTargetForElement(element);
+        scrollability.scrollTo(element, 0, target.roof, kScrollToTopTime);
     },
 
     scrollTo: function(element, x, y, animationTime, muteDelegate) {
@@ -125,11 +131,11 @@ function onScroll(event) {
 }
 
 function addEvent(element, action, callback, bubble) {
-	if (element.attachEvent) {
-		element.attachEvent("on"+action, callback);
-	} else if (element.addEventListener) {
-		element.addEventListener(action, callback, bubble);
-	}
+    if (element.attachEvent) {
+        element.attachEvent("on"+action, callback);
+    } else if (element.addEventListener) {
+        element.addEventListener(action, callback, bubble);
+    }
 }
 
 function onOrientationChange(event) {
@@ -704,18 +710,25 @@ function createXTarget(element) {
 
 function createYTarget(element) {
     var parent = element.parentNode,
-        pullDownToRefresh = parent.getElementsByClassName('pull-down-to-refresh')[0];
-        pullUpToRefresh = parent.getElementsByClassName('pull-up-to-refresh')[0];
+        pullUpToRefresh = parent.getElementsByClassName('pull-up-to-refresh')[0],
+        pullDownToRefresh = parent.getElementsByClassName('pull-down-to-refresh')[0],
+        hiddenAbove = parent.getElementsByClassName('hidden-above')[0];
+    
+    var min = -parent.scrollHeight + parent.offsetHeight + (pullUpToRefresh ? pullUpToRefresh.offsetHeight : 0);
+    var max = (pullDownToRefresh ? -pullDownToRefresh.offsetHeight : 0);
+    var roof = max + (hiddenAbove ? -hiddenAbove.offsetHeight : 0);
+    
     return {
         node: element,
         scrollbar: initScrollbar(element),
-        min: -parent.scrollHeight + parent.offsetHeight
-             + (pullUpToRefresh ? pullUpToRefresh.offsetHeight : 0),
-        max: (pullDownToRefresh ? -pullDownToRefresh.offsetHeight : 0),
+        min: min,
+        max: max,
+        roof: roof,
         viewport: parent.offsetHeight,
         bounce: parent.offsetHeight * kBounceLimit,
         pullUpToRefresh: pullUpToRefresh ? pullUpToRefresh : false,
         pullDownToRefresh: pullDownToRefresh ? pullDownToRefresh : false,
+        hiddenAbove: hiddenAbove ? hiddenAbove : false,
         constrained: true,
         delegate: element.scrollDelegate,
 
