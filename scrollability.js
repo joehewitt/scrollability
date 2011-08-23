@@ -69,14 +69,15 @@ window.scrollability = {
         if (scrollables.length) {
             var scrollable = scrollables[0];
             if (scrollable.className.indexOf('vertical') != -1) {
-                scrollability.scrollTo(scrollable, 0, 0, kScrollToTopTime);
+                scrollability.scrollToCeiling(scrollable, kScrollToTopTime);
             }
         }
     },
     
-    scrollToCeiling: function(element) {
+    scrollToCeiling: function(element, animationTime) {
+        animationTime = animationTime || 0;
         var target = createTargetForElement(element);
-        scrollability.scrollTo(element, 0, target.roof, kScrollToTopTime);
+        scrollability.scrollTo(element, 0, target.roof, animationTime);
     },
 
     scrollTo: function(element, x, y, animationTime, muteDelegate) {
