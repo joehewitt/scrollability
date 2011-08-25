@@ -1,7 +1,11 @@
 /* See LICENSE for terms of usage */
 (function() {
 
-if (navigator.userAgent.toLowerCase().indexOf("msie")>=0) { return false; }
+if (!navigator.userAgent.match(/iPhone/) && !navigator.userAgent.match(/iPad/) && !navigator.userAgent.match(/iPod/)) {
+    document.documentElement.className += " no-scrollability";
+    return false;
+}
+document.documentElement.className += " scrollability";
 
 // Number of pixels finger must move to determine horizontal or vertical motion
 var kLockThreshold = 10;
@@ -131,14 +135,6 @@ function onScroll(event) {
     });
 }
 
-function addEvent(element, action, callback, bubble) {
-    if (element.attachEvent) {
-        element.attachEvent("on"+action, callback);
-    } else if (element.addEventListener) {
-        element.addEventListener(action, callback, bubble);
-    }
-}
-
 function onOrientationChange(event) {
     justChangedOrientation = true;
 }
@@ -167,9 +163,8 @@ function onTouchStart(event) {
         touched = setTouched(touchCandidate);
     }, 50);
 
-    var d = document;
-    addEvent(d, 'touchmove', onTouchMove, false);
-    addEvent(d, 'touchend', onTouchEnd, false);
+    document.addEventListener('touchmove', onTouchMove, false);
+    document.addEventListener('touchend', onTouchEnd, false);
 
     animationInterval = setInterval(touchAnimation, 0);
 
@@ -224,8 +219,8 @@ function onTouchStart(event) {
             } catch(e) {}
         }
 
-        d.removeEventListener('touchmove', onTouchMove, false);
-        d.removeEventListener('touchend', onTouchEnd, false);
+        document.removeEventListener('touchmove', onTouchMove, false);
+        document.removeEventListener('touchend', onTouchEnd, false);
         touchDown = false;
     }
 }
@@ -751,9 +746,9 @@ function createYTarget(element) {
     };
 }
 
-addEvent(document, 'touchstart', onTouchStart, false);
-addEvent(document, 'scroll', onScroll, false);
-addEvent(document, 'orientationchange', onOrientationChange, false);
-addEvent(window, 'load', onLoad, false);
+document.addEventListener('touchstart', onTouchStart, false);
+document.addEventListener('scroll', onScroll, false);
+document.addEventListener('orientationchange', onOrientationChange, false);
+window.addEventListener('load', onLoad, false);
 
 })();
