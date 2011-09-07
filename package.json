@@ -1,18 +1,26 @@
 {
   "name": "scrollability",
   "description": "Native-like scrolling for the web",
-  "url": "http://github.com/joehewitt/scrollability",
+  "version": "0.0.1",
+  "homepage": "http://github.com/joehewitt/scrollability",
   "repository": {
       "type": "git",
       "url" : "http://github.com/joehewitt/scrollability.git"
   },
-  "keywords": [],
+  "keywords": ["client"],
   "author": "Joe Hewitt <joe@joehewitt.com>",
   "contributors": [],
-  "dependencies": {      
+  "dependencies": {
+    "dandy": ""     
   },
-  "version": "0.0.1",
+  "engines": { "node": ">=0.4.0" },
   "main": "./scrollability",
   "directories": {},
-  "engines": { "node": ">=0.4.0" }
+
+  "app.js": {
+      "title": "Scrollability",
+      "client": "scrollability/website",
+      "static": "./static",
+      "autohtml": false
+  }
 }

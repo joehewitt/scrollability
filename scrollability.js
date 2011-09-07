@@ -1,5 +1,15 @@
 /* See LICENSE for terms of usage */
-(function() {
+
+"style scrollability/scrollbar.css"
+
+// *************************************************************************************************
+
+var isWebkit = "webkitTransform" in document.documentElement.style;
+var isiOS5 = /CPU OS 5_/.exec(navigator.userAgent);
+var isFirefox = "MozTransform" in document.documentElement.style;
+var isTouch = "ontouchstart" in window;
+
+// *************************************************************************************************
 
 // Number of pixels finger must move to determine horizontal or vertical motion
 var kLockThreshold = 10;
@@ -35,11 +45,7 @@ var kScrollbarMargin = 1;
 // Time to scroll to top
 var kScrollToTopTime = 200;
 
-var isWebkit = "webkitTransform" in document.documentElement.style;
-var isFirefox = "MozTransform" in document.documentElement.style;
-var isTouch = "ontouchstart" in window;
-
-// ===============================================================================================
+// *************************************************************************************************
 
 var startX, startY, touchX, touchY, touchDown, touchMoved, justChangedOrientation;
 var animationInterval = 0;
@@ -107,16 +113,6 @@ var scrollability = {
         }
     }
 };
-
-
-function init() {
-    window.scrollability = scrollability;
-
-    document.addEventListener('touchstart', onTouchStart, false);
-    document.addEventListener('scroll', onScroll, false);
-    document.addEventListener('orientationchange', onOrientationChange, false);
-    window.addEventListener('load', onLoad, false);
-}
 
 function onLoad() {
     scrollability.flashIndicators();
@@ -215,7 +211,6 @@ function onTouchStart(event) {
 }
 
 function wrapTarget(target, startX, startY, startTime) {
-    var delegate = target.delegate;
     var constrained = target.constrained;
     var paginated = target.paginated;
     var viewport = target.viewport || 0;
@@ -250,10 +245,8 @@ function wrapTarget(target, startX, startY, startTime) {
         absMin += pageSpacing;
     }
 
-    if (delegate && delegate.onStartScroll) {
-        if (!delegate.onStartScroll()) {
-            return null;
-        }
+    if (!dispatch("scrollability-start", target.node)) {
+        return null;        
     }
 
     if (scrollbar) {
@@ -283,9 +276,7 @@ function wrapTarget(target, startX, startY, startTime) {
 
             if (!locked && Math.abs(touch - startTouch) > kLockThreshold) {
                 locked = true;
-                if (delegate && delegate.onLockScroll) {
-                    delegate.onLockScroll(target.key);
-                }
+                dispatch("scrollability-lock", target.node);
             }
             
             lastTouch = touch;
@@ -309,21 +300,17 @@ function wrapTarget(target, startX, startY, startTime) {
                         if (max != absMax) {
                             max += viewport+pageSpacing;
                             min += viewport+pageSpacing;
-                            if (delegate && delegate.onScrollPage) {
-                                var totalSpacing = min % viewport;
-                                var page = -Math.round((position+viewport-totalSpacing)/viewport);
-                                delegate.onScrollPage(page, -1);
-                            }
+                            var totalSpacing = min % viewport;
+                            var page = -Math.round((position+viewport-totalSpacing)/viewport);
+                            dispatch("scrollability-page", target.node, {page: page});
                         }
                     } else {
                         if (min != absMin) {
                             max -= viewport+pageSpacing;
                             min -= viewport+pageSpacing;
-                            if (delegate && delegate.onScrollPage) {
-                                var totalSpacing = min % viewport;
-                                var page = -Math.round((position-viewport-totalSpacing)/viewport);
-                                delegate.onScrollPage(page, 1);
-                            }
+                            var totalSpacing = min % viewport;
+                            var page = -Math.round((position-viewport-totalSpacing)/viewport);
+                            dispatch("scrollability-page", target.node, {page: page});
                         }
                     }
                 }
@@ -391,9 +378,7 @@ function wrapTarget(target, startX, startY, startTime) {
         target.node[target.key] = position;
         target.update(target.node, position);
 
-        if (delegate && delegate.onScroll) {
-            delegate.onScroll(position);
-        }
+        dispatch("scrollability-scroll", target.node, {position: position});
 
         // Update the scrollbar
         var range = -min - max;
@@ -440,9 +425,7 @@ function wrapTarget(target, startX, startY, startTime) {
             scrollbar.style.opacity = '0';
             scrollbar.style.webkitTransition = 'opacity 0.33s linear';
         }
-        if (delegate && delegate.onEndScroll) {
-            delegate.onEndScroll();
-        }
+        dispatch("scrollability-end", target.node);
     }
     
     target.updater = update;
@@ -572,21 +555,7 @@ function moveElement(element, x, y) {
 function initScrollbar(element) {
     if (!element.scrollableScrollbar) {
         var scrollbar = element.scrollableScrollbar = document.createElement('div');
-        scrollbar.className = 'scrollableScrollbar';
-
-        // We hardcode this CSS here to avoid having to provide a CSS file
-        scrollbar.style.cssText = [
-            'position: absolute',
-            'top: 0',
-            'right: 1px',
-            'width: 7px',
-            'min-height: 7px',
-            'opacity: 0',
-            '-webkit-transform: translate3d(0,0,0)',
-            '-webkit-box-sizing: border-box',
-            '-webkit-border-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAUhJREFUeNp0Ur1OwzAQtt1CaZQQgUjDhuicrEwoqjJlzpBAXoIHywtkcwfECyQPwIgKQkoyFJWq5k6cJcsUS5/sO993/1wpxazjAU4BJyR/A3aA0TSaGu85kbSO0y0AM/pH8lYr8ZwBLpBUluVtGIaPjuM8IYIgeEAdObwkB4xTqgv8iOP4vuu6lZEFRkUDHkWRbNv2mVJ/x4g+1pPn+RJICRlzk4Q3/lVVdUP1nwtqgpJSYqQJGbMj96RpmhXJM01kwzBcWU2x36zv+wXppro5TAihvat/HCjxa6R0V7FY5rruhx3BTtfzvDeS95rI0zSVcB+MpijL0SHLsjW9d3ocIRZvjINbKSsYx5rGsQdsNHFOC8CKolhCh+/GcbxG2ff9TZIkL3Vdv5KjT8AXN3b12MqZi4yRBiTZu7olmEvOacH/LPmPAAMA2bZzzeYUC40AAAAASUVORK5CYII=") 6 2 6 2 / 3px 1px 3px 1px round round',
-            'z-index: 2147483647',
-        ].join(';');
+        scrollbar.className = 'scrollability-scrollbar';
     }
     return element.scrollableScrollbar;
 }
@@ -599,14 +568,14 @@ function easeOutExpo(t, b, c, d) {
 
 function createXTarget(element) {
     var parent = element.parentNode;
+    var baseline = isiOS5 ? (element.scrollable_horizontal||0) : 0;
     return {
         node: element,
-        min: -parent.scrollWidth + parent.offsetWidth,
+        min: (-parent.scrollWidth+baseline) + parent.offsetWidth,
         max: 0,
         viewport: parent.offsetWidth,
         bounce: parent.offsetWidth * kBounceLimit,
         constrained: true,
-        delegate: element.scrollDelegate,
         
         filter: function(x, y) {
             return x; 
@@ -628,15 +597,15 @@ function createXTarget(element) {
 
 function createYTarget(element) {
     var parent = element.parentNode;
+    var baseline = isiOS5 ? (element.scrollable_vertical||0) : 0;
     return {
         node: element,
         scrollbar: initScrollbar(element),
-        min: -parent.scrollHeight + parent.offsetHeight,
+        min: (-parent.scrollHeight+baseline) + parent.offsetHeight,
         max: 0,
         viewport: parent.offsetHeight,
         bounce: parent.offsetHeight * kBounceLimit,
         constrained: true,
-        delegate: element.scrollDelegate,
         
         filter: function(x, y) {
             return y;
@@ -656,6 +625,24 @@ function createYTarget(element) {
     };    
 }
 
-init();
+function dispatch(name, target, props) {
+    var e = document.createEvent("Events");
+    e.initEvent(name, true, true);
 
-})();
+    if (props) {
+        for (var name in props) {
+            e[name] = props[name];
+        }
+    }
+
+    return target.dispatchEvent(e);
+}
+
+require.ready(function() {
+    window.scrollability = scrollability;
+
+    document.addEventListener('touchstart', onTouchStart, false);
+    document.addEventListener('scroll', onScroll, false);
+    document.addEventListener('orientationchange', onOrientationChange, false);
+    window.addEventListener('load', onLoad, false);
+});
