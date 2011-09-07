@@ -1,6 +1,12 @@
 /* See LICENSE for terms of usage */
 (function() {
 
+if (!navigator.userAgent.match(/iPhone/) && !navigator.userAgent.match(/iPad/) && !navigator.userAgent.match(/iPod/)) {
+    document.documentElement.className += " no-scrollability";
+    return false;
+}
+document.documentElement.className += " scrollability";
+
 // Number of pixels finger must move to determine horizontal or vertical motion
 var kLockThreshold = 10;
 
@@ -20,17 +26,16 @@ var kBounceLimit = 0.5;
 var kBounceDecelRate = 600;
 
 // Duration of animation when bouncing back
-var kBounceTime = 80;
-var kPageBounceTime = 60;
+var kBounceTime = 90;
 
 // Percentage of viewport which must be scrolled past in order to snap to the next page
-var kPageLimit = 0.5;
+var kPageLimit = 0.3;
 
 // Velocity at which the animation will advance to the next page
 var kPageEscapeVelocity = 50;
 
 // Vertical margin of scrollbar
-var kScrollbarMargin = 1;
+var kScrollbarMargin = 2;
 
 // Time to scroll to top
 var kScrollToTopTime = 200;
@@ -41,7 +46,7 @@ var isTouch = "ontouchstart" in window;
 
 // ===============================================================================================
 
-var startX, startY, touchX, touchY, touchDown, touchMoved, justChangedOrientation;
+var startX, startY, touchX, touchY, touchDown, touchMoved, onScrollEvt, useOnScrollEvt, justChangedOrientation;
 var animationInterval = 0;
 var touchTargets = [];
 
@@ -50,28 +55,35 @@ var scrollers = {
     'vertical': createYTarget
 };
 
-var scrollability = {
+window.scrollability = {
     globalScrolling: false,
+    useOnScrollEvt: false,
     scrollers: scrollers,
 
     flashIndicators: function() {
-        var scrollables = document.querySelectorAll('.scrollable.vertical');
-        for (var i = 0; i < scrollables.length; ++i) {
-            scrollability.scrollTo(scrollables[i], 0, 0, 20, true);
-        }            
+        var i, scrollables = document.querySelectorAll('.scrollable.vertical');
+        for (i = 0; i < scrollables.length; ++i) {
+            var scrollable = scrollables[i];
+            scrollability.scrollToCeiling(scrollable);
+        }
     },
-
+    
     scrollToTop: function() {
         var scrollables = document.getElementsByClassName('scrollable');
         if (scrollables.length) {
             var scrollable = scrollables[0];
             if (scrollable.className.indexOf('vertical') != -1) {
-                scrollability.scrollTo(scrollable, 0, 0, kScrollToTopTime);
+                scrollability.scrollToCeiling(scrollable, kScrollToTopTime);
             }
         }
-    
     },
     
+    scrollToCeiling: function(element, animationTime) {
+        animationTime = animationTime || 0;
+        var target = createTargetForElement(element);
+        scrollability.scrollTo(element, 0, target.roof, animationTime);
+    },
+
     scrollTo: function(element, x, y, animationTime, muteDelegate) {
         stopAnimation();
 
@@ -88,6 +100,7 @@ var scrollability = {
                 var dest = target.filter(x, y);
                 var dir = dest - orig;
                 var startTime = new Date().getTime();
+
                 animationInterval = setInterval(function() {
                     var d = new Date().getTime() - startTime;
                     var pos = orig + ((dest-orig) * (d/animationTime));
@@ -108,16 +121,6 @@ var scrollability = {
     }
 };
 
-
-function init() {
-    window.scrollability = scrollability;
-
-    document.addEventListener('touchstart', onTouchStart, false);
-    document.addEventListener('scroll', onScroll, false);
-    document.addEventListener('orientationchange', onOrientationChange, false);
-    window.addEventListener('load', onLoad, false);
-}
-
 function onLoad() {
     scrollability.flashIndicators();
 }
@@ -128,7 +131,7 @@ function onScroll(event) {
             justChangedOrientation = false;
         } else if (isTouch) {
             scrollability.scrollToTop();
-        }        
+        }
     });
 }
 
@@ -141,6 +144,7 @@ function onTouchStart(event) {
 
     var touchCandidate = event.target;
     var touch = event.touches[0];
+
     var touched = null;
     var startTime = new Date().getTime();
 
@@ -153,22 +157,21 @@ function onTouchStart(event) {
     if (!touchTargets.length && !scrollability.globalScrolling) {
         return true;
     }
-    
+
     var holdTimeout = setTimeout(function() {
         holdTimeout = 0;
         touched = setTouched(touchCandidate);
     }, 50);
-        
-    var d = document;
-    d.addEventListener('touchmove', onTouchMove, false);
-    d.addEventListener('touchend', onTouchEnd, false);
 
-    animationInterval = setInterval(touchAnimation, 0);    
+    document.addEventListener('touchmove', onTouchMove, false);
+    document.addEventListener('touchend', onTouchEnd, false);
+
+    animationInterval = setInterval(touchAnimation, 0);
 
     function onTouchMove(event) {
         event.preventDefault();
         touchMoved = true;
-        
+
         if (holdTimeout) {
             clearTimeout(holdTimeout);
             holdTimeout = 0;
@@ -192,6 +195,10 @@ function onTouchStart(event) {
                 }
             }
         }
+
+        try {
+            touchTargets[0].pullToRefresh();
+        } catch(e) {}
     }
 
     function onTouchEnd(event) {
@@ -202,14 +209,18 @@ function onTouchStart(event) {
 
         // Simulate a click event when releasing the finger
         if (touched) {
-            var evt = document.createEvent('MouseEvents'); 
+            var evt = document.createEvent('MouseEvents');
             evt.initMouseEvent('click', true, true, window, 1);
-            touched[0].dispatchEvent(evt); 
+            touched[0].dispatchEvent(evt);
             releaseTouched(touched);
+        } else {
+            try {
+                touchTargets[0].pullToRefreshRelease();
+            } catch(e) {}
         }
-        
-        d.removeEventListener('touchmove', onTouchMove, false);
-        d.removeEventListener('touchend', onTouchEnd, false);
+
+        document.removeEventListener('touchmove', onTouchMove, false);
+        document.removeEventListener('touchend', onTouchEnd, false);
         touchDown = false;
     }
 }
@@ -229,7 +240,6 @@ function wrapTarget(target, startX, startY, startTime) {
     var velocity = 0;
     var decelerating = 0;
     var decelOrigin, decelDelta;
-    var bounceTime = paginated ? kPageBounceTime : kBounceTime;
     var bounceLimit = target.bounce;
     var pageLimit = viewport * kPageLimit;
     var lastTouch = startTouch = target.filter(startX, startY);
@@ -238,6 +248,8 @@ function wrapTarget(target, startX, startY, startTime) {
     var stillThreshold = 20;
     var snapped = false;
     var locked = false;
+    var isPullingUp = false;
+    var isPullingDown = false;
 
     if (paginated) {
         var excess = Math.round(Math.abs(absMin) % viewport);
@@ -259,11 +271,11 @@ function wrapTarget(target, startX, startY, startTime) {
     if (scrollbar) {
         target.node.parentNode.appendChild(scrollbar);
     }
-    
+
     function animator(touch, time) {
         var deltaTime = 1 / (time - lastTime);
         lastTime = time;
-        
+
         var continues = true;
         if (touchDown) {
             var delta = (touch - lastTouch) * kTouchMultiplier;
@@ -287,15 +299,15 @@ function wrapTarget(target, startX, startY, startTime) {
                     delegate.onLockScroll(target.key);
                 }
             }
-            
+
             lastTouch = touch;
             velocity = delta / deltaTime;
-            
+
             // Apply resistance along the edges
-            if (position > max && absMax == max && constrained) {
+            if (position > max && constrained) {
                 var excess = position - max;
                 velocity *= (1.0 - excess / bounceLimit);
-            } else if (position < min && absMin == min && constrained) {
+            } else if (position < min && constrained) {
                 var excess = min - position;
                 velocity *= (1.0 - excess / bounceLimit);
             }
@@ -343,8 +355,8 @@ function wrapTarget(target, startX, startY, startTime) {
                         decelDelta = max - position;
                     }
 
-                    position = easeOutExpo(decelerating, decelOrigin, decelDelta, bounceTime);
-                    return update(position, ++decelerating <= bounceTime && Math.floor(position) > max);
+                    position = easeOutExpo(decelerating, decelOrigin, decelDelta, kBounceTime);
+                    return update(position, ++decelerating <= kBounceTime && Math.floor(position) > max);
                 }
             } else if (position < min && constrained) {
                 if (velocity < 0) {
@@ -359,8 +371,8 @@ function wrapTarget(target, startX, startY, startTime) {
                         decelOrigin = position;
                         decelDelta = min - position;
                     }
-                    position = easeOutExpo(decelerating, decelOrigin, decelDelta, bounceTime);
-                    return update(position, ++decelerating <= bounceTime && Math.ceil(position) < min);
+                    position = easeOutExpo(decelerating, decelOrigin, decelDelta, kBounceTime);
+                    return update(position, ++decelerating <= kBounceTime && Math.ceil(position) < min);
                 }
             } else {
                 // Slowing down
@@ -380,7 +392,7 @@ function wrapTarget(target, startX, startY, startTime) {
                 }
             }
         }
-        
+
         position += velocity * deltaTime;
         return update(position, continues);
     }
@@ -397,15 +409,15 @@ function wrapTarget(target, startX, startY, startTime) {
 
         // Update the scrollbar
         var range = -min - max;
-        if (scrollbar && viewport < range) {
+        if (scrollbar && (range + viewport) > viewport) {
             var viewable = viewport - kScrollbarMargin*2;
-            var height = (viewable/range) * viewable;
+            var height = (viewable/(range+viewport)) * viewable;
             var scrollPosition = 0;
             if (position > max) {
-                height = Math.max(height - (position-max), 7);
+                height = Math.max(height - (position-max), 5);
                 scrollPosition = 0;
             } else if (position < min) {
-                height = Math.max(height - (min - position), 7);
+                height = Math.max(height - (min - position), 5);
                 scrollPosition = (viewable-height);
             } else {
                 scrollPosition = Math.round((Math.abs(position) / range) * (viewable-height));
@@ -414,16 +426,16 @@ function wrapTarget(target, startX, startY, startTime) {
             scrollbar.style.height = Math.round(height) + 'px';
 
             moveElement(scrollbar, 0, Math.round(scrollPosition));
-            
+
             if (touchMoved) {
                 scrollbar.style.webkitTransition = 'none';
                 scrollbar.style.opacity = '1';
             }
-        }    
+        }
 
         return continues;
     }
-    
+
     function terminator() {
         // Snap to the integer endpoint, since position may be a subpixel value while animating
         if (paginated) {
@@ -444,16 +456,68 @@ function wrapTarget(target, startX, startY, startTime) {
             delegate.onEndScroll();
         }
     }
-    
+
+    function pullToRefresh(released) {
+        var pullUpMin = min - target.pullUpToRefresh.offsetHeight / 2;
+        var pullDownMin = max + target.pullDownToRefresh.offsetHeight;
+        var pullState;
+        
+        return function() {
+            if (target.pullUpToRefresh || target.pullDownToRefresh) {
+                if ( !released && 
+                        (
+                            (isPullingDown && ((pullDownMin < position && pullState) || (pullDownMin > position && !pullState)))
+                            || 
+                            (isPullingUp && ((position < pullUpMin && pullState) || (position > pullUpMin && !pullState)))
+                        )
+                ) {
+                    return;
+                }
+                
+                if (released && (position > pullDownMin)) {
+                    pullState = 'pulledDown';
+                    isPullingUp = false;
+                    isPullingDown = false;
+                } else if (released && (position < pullUpMin)) {
+                    pullState = 'pulledUp';
+                    isPullingUp = false;
+                    isPullingDown = false;
+                } else if (isPullingDown && (position < pullDownMin)) {
+                    pullState = 'pullDownCancel';
+                    isPullingUp = false;
+                    isPullingDown = false;
+                } else if (isPullingUp && (position > pullUpMin)) {
+                    pullState = 'pullUpCancel';
+                    isPullingUp = false;
+                    isPullingDown = false;
+                } else if (position > pullDownMin) {
+                    pullState = 'pullingDown';
+                    isPullingUp = false;
+                    isPullingDown = true;
+                } else if (position < pullUpMin) {
+                    pullState = 'pullingUp';
+                    isPullingUp = true;
+                    isPullingDown = false;
+                }
+                
+                var evt = document.createEvent('Event');
+                evt.initEvent(pullState, true, false);
+                target.node.dispatchEvent(evt);
+            }
+        }
+    }
+
     target.updater = update;
     target.animator = animator;
     target.terminator = terminator;
+    target.pullToRefresh = pullToRefresh(false);
+    target.pullToRefreshRelease = pullToRefresh(true);
     return target;
 }
 
 function touchAnimation() {
     var time = new Date().getTime();
-    
+
     // Animate each of the targets
     for (var i = 0; i < touchTargets.length; ++i) {
         var target = touchTargets[i];
@@ -465,7 +529,7 @@ function touchAnimation() {
             touchTargets.splice(i--, 1);
         }
     }
-    
+
     if (!touchTargets.length) {
         stopAnimation();
     }
@@ -478,7 +542,7 @@ function getTouchTargets(node, touchX, touchY, startTime) {
     findTargets(node, targets, touchX, touchY, startTime);
 
     var candidates = document.querySelectorAll('.scrollable.global');
-    for (var j = 0; j < candidates.length; ++j) {
+    for(var j = 0; j < candidates.length; ++j) {
         findTargets(candidates[j], targets, touchX, touchY, startTime);
     }
     return targets;
@@ -500,12 +564,12 @@ function findTargets(element, targets, touchX, touchY, startTime) {
                 if (!exists) {
                     target = wrapTarget(target, touchX, touchY, startTime);
                     if (target) {
-                        targets.push(target);                            
+                        targets.push(target);
                     }
                 }
             }
         }
-       element = element.parentNode;
+        element = element.parentNode;
     }
 }
 
@@ -559,13 +623,25 @@ function stopAnimation() {
 function moveElement(element, x, y) {
     if (isWebkit) {
         element.style.webkitTransform = 'translate3d('
-        +(x ? (x+'px') : '0')+','
-        +(y ? (y+'px') : '0')+','
-        +'0)';      
+            +(x ? (x+'px') : '0')+','
+            +(y ? (y+'px') : '0')+','
+            +'0)';
     } else if (isFirefox) {
-        element.style.MozTransform = 'translate('
-        +(x ? (x+'px') : '0')+','
-        +(y ? (y+'px') : '0')+')';      
+        element.style.MozTransform = 'translate3d('
+            +(x ? (x+'px') : '0')+','
+            +(y ? (y+'px') : '0')+')';
+    }
+
+    if(!onScrollEvt && useOnScrollEvt) {
+        onScrollEvt = setTimeout(function() {
+            var evt = document.createEvent('Event');
+            // Don't want this to bubble because of scrollToTop
+            evt.initEvent('scroll', false, false);
+            evt.x = -x || 0;
+            evt.y = -y || 0;
+            element.dispatchEvent(evt);
+            onScrollEvt = false;
+        }, 20);
     }
 }
 
@@ -578,14 +654,16 @@ function initScrollbar(element) {
         scrollbar.style.cssText = [
             'position: absolute',
             'top: 0',
-            'right: 1px',
-            'width: 7px',
-            'min-height: 7px',
+            'right: 2px',
+            'width: 5px',
+            'min-height: 4px',
+            'background: rgba(40, 40, 40, 0.6)',
+            'border: 1px solid rgba(235, 235, 235, 0.1)',
             'opacity: 0',
+            '-webkit-border-radius: 4px 5px',
             '-webkit-transform: translate3d(0,0,0)',
             '-webkit-box-sizing: border-box',
-            '-webkit-border-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAUhJREFUeNp0Ur1OwzAQtt1CaZQQgUjDhuicrEwoqjJlzpBAXoIHywtkcwfECyQPwIgKQkoyFJWq5k6cJcsUS5/sO993/1wpxazjAU4BJyR/A3aA0TSaGu85kbSO0y0AM/pH8lYr8ZwBLpBUluVtGIaPjuM8IYIgeEAdObwkB4xTqgv8iOP4vuu6lZEFRkUDHkWRbNv2mVJ/x4g+1pPn+RJICRlzk4Q3/lVVdUP1nwtqgpJSYqQJGbMj96RpmhXJM01kwzBcWU2x36zv+wXppro5TAihvat/HCjxa6R0V7FY5rruhx3BTtfzvDeS95rI0zSVcB+MpijL0SHLsjW9d3ocIRZvjINbKSsYx5rGsQdsNHFOC8CKolhCh+/GcbxG2ff9TZIkL3Vdv5KjT8AXN3b12MqZi4yRBiTZu7olmEvOacH/LPmPAAMA2bZzzeYUC40AAAAASUVORK5CYII=") 6 2 6 2 / 3px 1px 3px 1px round round',
-            'z-index: 2147483647',
+            'z-index: 2147483647'
         ].join(';');
     }
     return element.scrollableScrollbar;
@@ -607,9 +685,9 @@ function createXTarget(element) {
         bounce: parent.offsetWidth * kBounceLimit,
         constrained: true,
         delegate: element.scrollDelegate,
-        
+
         filter: function(x, y) {
-            return x; 
+            return x;
         },
 
         disable: function (x, y, startX, startY) {
@@ -627,21 +705,33 @@ function createXTarget(element) {
 }
 
 function createYTarget(element) {
-    var parent = element.parentNode;
+    var parent = element.parentNode,
+        pullUpToRefresh = parent.getElementsByClassName('pull-up-to-refresh')[0],
+        pullDownToRefresh = parent.getElementsByClassName('pull-down-to-refresh')[0],
+        hiddenAbove = parent.getElementsByClassName('hidden-above')[0];
+    
+    var min = -parent.scrollHeight + parent.offsetHeight + (pullUpToRefresh ? pullUpToRefresh.offsetHeight : 0);
+    var max = (pullDownToRefresh ? -pullDownToRefresh.offsetHeight : 0);
+    var roof = max + (hiddenAbove ? -hiddenAbove.offsetHeight : 0);
+    
     return {
         node: element,
         scrollbar: initScrollbar(element),
-        min: -parent.scrollHeight + parent.offsetHeight,
-        max: 0,
+        min: min,
+        max: max,
+        roof: roof,
         viewport: parent.offsetHeight,
         bounce: parent.offsetHeight * kBounceLimit,
+        pullUpToRefresh: pullUpToRefresh ? pullUpToRefresh : false,
+        pullDownToRefresh: pullDownToRefresh ? pullDownToRefresh : false,
+        hiddenAbove: hiddenAbove ? hiddenAbove : false,
         constrained: true,
         delegate: element.scrollDelegate,
-        
+
         filter: function(x, y) {
             return y;
         },
-        
+
         disable: function(x, y, startX, startY) {
             var dx = Math.abs(x - startX);
             var dy = Math.abs(y - startY);
@@ -649,13 +739,16 @@ function createYTarget(element) {
                 return true;
             }
         },
-        
+
         update: function(element, position) {
             moveElement(element, element.scrollable_horizontal||0, position);
         }
-    };    
+    };
 }
 
-init();
+document.addEventListener('touchstart', onTouchStart, false);
+document.addEventListener('scroll', onScroll, false);
+document.addEventListener('orientationchange', onOrientationChange, false);
+window.addEventListener('load', onLoad, false);
 
 })();
