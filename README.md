@@ -1,7 +1,7 @@
-scrollability
+Scrollability
 =============
 
-Give your mobile web apps a pretty darn good approximation of iOS native scrolling.
+Scrollability adds a good imitation of iOS native scrolling to your mobile web apps.
 
 Scrollability is a single script, it's small, and it has no external dependencies. Drop it into your page, add a few CSS classes to scrollable elements, and scroll away. 
 

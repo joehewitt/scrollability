@@ -10,17 +10,11 @@
   "keywords": ["client"],
   "author": "Joe Hewitt <joe@joehewitt.com>",
   "contributors": [],
-  "dependencies": {
-    "dandy": ""     
-  },
+  "dependencies": {},
   "engines": { "node": ">=0.4.0" },
   "main": "./scrollability",
   "directories": {},
-
   "app.js": {
-      "title": "Scrollability",
-      "client": "scrollability/website",
-      "static": "./static",
-      "autohtml": false
-  }
+      "static": "./static"
+  }  
 }

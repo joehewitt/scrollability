@@ -276,7 +276,7 @@ function wrapTarget(target, startX, startY, startTime) {
 
             if (!locked && Math.abs(touch - startTouch) > kLockThreshold) {
                 locked = true;
-                dispatch("scrollability-lock", target.node);
+                dispatch("scrollability-lock", target.node, {direction: target.name});
             }
             
             lastTouch = touch;
@@ -378,7 +378,9 @@ function wrapTarget(target, startX, startY, startTime) {
         target.node[target.key] = position;
         target.update(target.node, position);
 
-        dispatch("scrollability-scroll", target.node, {position: position});
+        if (!dispatch("scrollability-scroll", target.node, {direction: target.name, position: position})) {
+            return continues;
+        }
 
         // Update the scrollbar
         var range = -min - max;

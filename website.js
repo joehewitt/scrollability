@@ -1,4 +1,0 @@
-
-require('./scrollability');
-
-require("dandy");
