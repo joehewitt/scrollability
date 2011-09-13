@@ -24,9 +24,11 @@ html {
     left: 0;
     top: 24px;
     bottom: 24px;
-    width: 320px;
+    width: 100%;
     background: #fff;
     overflow: hidden;
+/*    overflow: scroll;
+    -webkit-overflow-scrolling: touch;*/
 }
     
 .item {
@@ -152,7 +154,7 @@ addEventListener('DOMContentLoaded', function() {
     
 </head>
 <body>
-    <div class="bar top">Scrollability Demo</div>
+    <div class="bar top" onclick="location.reload(true)">Scrollability Demo</div>
     <div class="bar bottom">Footer</div>
     <div id="container">
         <div id="page" class="scrollable vertical"></div>

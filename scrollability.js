@@ -2,10 +2,19 @@
 
 "style scrollability/scrollbar.css"
 
+// function D() {
+//     if (console.log.apply) {
+//         console.log.apply(console, arguments);
+//     } else {
+//         var args = []; args.push.apply(args, arguments);
+//         console.log(args.join(' '));
+//     }
+// }
+
 // *************************************************************************************************
 
 var isWebkit = "webkitTransform" in document.documentElement.style;
-var isiOS5 = /CPU OS 5_/.exec(navigator.userAgent);
+var isiOS5 = isWebkit && /OS 5_/.exec(navigator.userAgent);
 var isFirefox = "MozTransform" in document.documentElement.style;
 var isTouch = "ontouchstart" in window;
 
@@ -49,16 +58,16 @@ var kScrollToTopTime = 200;
 
 var startX, startY, touchX, touchY, touchDown, touchMoved, justChangedOrientation;
 var animationInterval = 0;
-var touchTargets = [];
+var touchAnimators = [];
 
-var scrollers = {
-    'horizontal': createXTarget,
-    'vertical': createYTarget
+var directions = {
+    'horizontal': createXDirection,
+    'vertical': createYDirection
 };
 
-var scrollability = {
+var scrollability = exports.scrollability = {
     globalScrolling: false,
-    scrollers: scrollers,
+    directions: directions,
 
     flashIndicators: function() {
         var scrollables = document.querySelectorAll('.scrollable.vertical');
@@ -78,20 +87,17 @@ var scrollability = {
     
     },
     
-    scrollTo: function(element, x, y, animationTime, muteDelegate) {
+    scrollTo: function(element, x, y, animationTime) {
         stopAnimation();
 
-        var target = createTargetForElement(element);
-        if (target) {
-            if (muteDelegate) {
-                target.delegate = null;
-            }
-            target = wrapTarget(target);
-            touchTargets = [target];
+        var animator = createAnimatorForElement(element);
+        if (animator) {
+            animator = wrapAnimator(animator);
+            touchAnimators = [animator];
             touchMoved = true;
             if (animationTime) {
-                var orig = element[target.key];
-                var dest = target.filter(x, y);
+                var orig = element[animator.key];
+                var dest = animator.filter(x, y);
                 var dir = dest - orig;
                 var startTime = new Date().getTime();
                 animationInterval = setInterval(function() {
@@ -100,14 +106,14 @@ var scrollability = {
                     if ((dir < 0 && pos < dest) || (dir > 0 && pos > dest)) {
                         pos = dest;
                     }
-                    target.updater(pos);
+                    animator.sync(pos);
                     if (pos == dest) {
                         clearInterval(animationInterval);
                         setTimeout(stopAnimation, 200);
                     }
                 }, 20);
             } else {
-                target.updater(y);
+                animator.updater(y);
                 stopAnimation();
             }
         }
@@ -145,8 +151,8 @@ function onTouchStart(event) {
     touchDown = true;
     touchMoved = false;
 
-    touchTargets = getTouchTargets(event.target, touchX, touchY, startTime);
-    if (!touchTargets.length && !scrollability.globalScrolling) {
+    touchAnimators = getTouchAnimators(event.target, touchX, touchY, startTime);
+    if (!touchAnimators.length && !scrollability.globalScrolling) {
         return true;
     }
     
@@ -159,7 +165,7 @@ function onTouchStart(event) {
     d.addEventListener('touchmove', onTouchMove, false);
     d.addEventListener('touchend', onTouchEnd, false);
 
-    animationInterval = setInterval(touchAnimation, 0);    
+    animationInterval = setInterval(touchAnimation, 0);
 
     function onTouchMove(event) {
         event.preventDefault();
@@ -178,12 +184,12 @@ function onTouchStart(event) {
         touchY = touch.clientY;
 
         // Reduce the candidates down to the one whose axis follows the finger most closely
-        if (touchTargets.length > 1) {
-            for (var i = 0; i < touchTargets.length; ++i) {
-                var target = touchTargets[i];
-                if (target.disable && target.disable(touchX, touchY, startX, startY)) {
-                    target.terminator();
-                    touchTargets.splice(i, 1);
+        if (touchAnimators.length > 1) {
+            for (var i = 0; i < touchAnimators.length; ++i) {
+                var animator = touchAnimators[i];
+                if (animator.disable && animator.disable(touchX, touchY, startX, startY)) {
+                    animator.terminate();
+                    touchAnimators.splice(i, 1);
                     break;
                 }
             }
@@ -210,14 +216,14 @@ function onTouchStart(event) {
     }
 }
 
-function wrapTarget(target, startX, startY, startTime) {
-    var constrained = target.constrained;
-    var paginated = target.paginated;
-    var viewport = target.viewport || 0;
-    var scrollbar = target.scrollbar;
-    var position = target.node[target.key];
-    var min = target.min;
-    var max = target.max;
+function wrapAnimator(animator, startX, startY, startTime) {
+    var constrained = animator.constrained;
+    var paginated = animator.paginated;
+    var viewport = animator.viewport || 0;
+    var scrollbar = animator.scrollbar;
+    var position = animator.node[animator.key];
+    var min = animator.min;
+    var max = animator.max;
     var absMin = min;
     var absMax = Math.round(max/viewport)*viewport;
     var pageSpacing = 0;
@@ -225,9 +231,9 @@ function wrapTarget(target, startX, startY, startTime) {
     var decelerating = 0;
     var decelOrigin, decelDelta;
     var bounceTime = paginated ? kPageBounceTime : kBounceTime;
-    var bounceLimit = target.bounce;
+    var bounceLimit = animator.bounce;
     var pageLimit = viewport * kPageLimit;
-    var lastTouch = startTouch = target.filter(startX, startY);
+    var lastTouch = startTouch = animator.filter(startX, startY);
     var lastTime = startTime;
     var stillTime = 0;
     var stillThreshold = 20;
@@ -245,15 +251,15 @@ function wrapTarget(target, startX, startY, startTime) {
         absMin += pageSpacing;
     }
 
-    if (!dispatch("scrollability-start", target.node)) {
+    if (!dispatch("scrollability-start", animator.node)) {
         return null;        
     }
 
     if (scrollbar) {
-        target.node.parentNode.appendChild(scrollbar);
+        animator.node.parentNode.appendChild(scrollbar);
     }
     
-    function animator(touch, time) {
+    function animate(touch, time) {
         var deltaTime = 1 / (time - lastTime);
         lastTime = time;
         
@@ -276,7 +282,7 @@ function wrapTarget(target, startX, startY, startTime) {
 
             if (!locked && Math.abs(touch - startTouch) > kLockThreshold) {
                 locked = true;
-                dispatch("scrollability-lock", target.node, {direction: target.name});
+                dispatch("scrollability-lock", animator.node, {direction: animator.direction});
             }
             
             lastTouch = touch;
@@ -302,7 +308,7 @@ function wrapTarget(target, startX, startY, startTime) {
                             min += viewport+pageSpacing;
                             var totalSpacing = min % viewport;
                             var page = -Math.round((position+viewport-totalSpacing)/viewport);
-                            dispatch("scrollability-page", target.node, {page: page});
+                            dispatch("scrollability-page", animator.node, {page: page});
                         }
                     } else {
                         if (min != absMin) {
@@ -310,7 +316,7 @@ function wrapTarget(target, startX, startY, startTime) {
                             min -= viewport+pageSpacing;
                             var totalSpacing = min % viewport;
                             var page = -Math.round((position-viewport-totalSpacing)/viewport);
-                            dispatch("scrollability-page", target.node, {page: page});
+                            dispatch("scrollability-page", animator.node, {page: page});
                         }
                     }
                 }
@@ -331,7 +337,7 @@ function wrapTarget(target, startX, startY, startTime) {
                     }
 
                     position = easeOutExpo(decelerating, decelOrigin, decelDelta, bounceTime);
-                    return update(position, ++decelerating <= bounceTime && Math.floor(position) > max);
+                    return sync(position, ++decelerating <= bounceTime && Math.floor(position) > max);
                 }
             } else if (position < min && constrained) {
                 if (velocity < 0) {
@@ -347,7 +353,7 @@ function wrapTarget(target, startX, startY, startTime) {
                         decelDelta = min - position;
                     }
                     position = easeOutExpo(decelerating, decelOrigin, decelDelta, bounceTime);
-                    return update(position, ++decelerating <= bounceTime && Math.ceil(position) < min);
+                    return sync(position, ++decelerating <= bounceTime && Math.ceil(position) < min);
                 }
             } else {
                 // Slowing down
@@ -369,16 +375,17 @@ function wrapTarget(target, startX, startY, startTime) {
         }
         
         position += velocity * deltaTime;
-        return update(position, continues);
+        return sync(position, continues);
     }
 
-    function update(pos, continues) {
+    function sync(pos, continues) {
         position = pos;
 
-        target.node[target.key] = position;
-        target.update(target.node, position);
+        animator.node[animator.key] = position;
+        animator.update(animator.node, position);
 
-        if (!dispatch("scrollability-scroll", target.node, {direction: target.name, position: position})) {
+        if (!dispatch("scrollability-scroll", animator.node,
+            {direction: animator.direction, position: position})) {
             return continues;
         }
 
@@ -411,15 +418,15 @@ function wrapTarget(target, startX, startY, startTime) {
         return continues;
     }
     
-    function terminator() {
+    function terminate() {
         // Snap to the integer endpoint, since position may be a subpixel value while animating
         if (paginated) {
             var pageIndex = Math.round(position/viewport);
-            update(pageIndex * (viewport+pageSpacing));
+            sync(pageIndex * (viewport+pageSpacing));
         } else  if (position > max && constrained) {
-            update(max);
+            sync(max);
         } else if (position < min && constrained) {
-            update(min);
+            sync(min);
         }
 
         // Hide the scrollbar
@@ -427,65 +434,65 @@ function wrapTarget(target, startX, startY, startTime) {
             scrollbar.style.opacity = '0';
             scrollbar.style.webkitTransition = 'opacity 0.33s linear';
         }
-        dispatch("scrollability-end", target.node);
+        dispatch("scrollability-end", animator.node);
     }
     
-    target.updater = update;
-    target.animator = animator;
-    target.terminator = terminator;
-    return target;
+    animator.sync = sync;
+    animator.animate = animate;
+    animator.terminate = terminate;
+    return animator;
 }
 
 function touchAnimation() {
     var time = new Date().getTime();
     
-    // Animate each of the targets
-    for (var i = 0; i < touchTargets.length; ++i) {
-        var target = touchTargets[i];
+    // Animate each of the animators
+    for (var i = 0; i < touchAnimators.length; ++i) {
+        var animator = touchAnimators[i];
 
-        // Translate the x/y touch into the value needed by each of the targets
-        var touch = target.filter(touchX, touchY);
-        if (!target.animator(touch, time)) {
-            target.terminator();
-            touchTargets.splice(i--, 1);
+        // Translate the x/y touch into the value needed by each of the animators
+        var touch = animator.filter(touchX, touchY);
+        if (!animator.animate(touch, time)) {
+            animator.terminate();
+            touchAnimators.splice(i--, 1);
         }
     }
     
-    if (!touchTargets.length) {
+    if (!touchAnimators.length) {
         stopAnimation();
     }
 }
 
 // *************************************************************************************************
 
-function getTouchTargets(node, touchX, touchY, startTime) {
-    var targets = [];
-    findTargets(node, targets, touchX, touchY, startTime);
+function getTouchAnimators(node, touchX, touchY, startTime) {
+    var animators = [];
+    findAnimators(node, animators, touchX, touchY, startTime);
 
     var candidates = document.querySelectorAll('.scrollable.global');
     for (var j = 0; j < candidates.length; ++j) {
-        findTargets(candidates[j], targets, touchX, touchY, startTime);
+        findAnimators(candidates[j], animators, touchX, touchY, startTime);
     }
-    return targets;
+    return animators;
 }
 
-function findTargets(element, targets, touchX, touchY, startTime) {
+function findAnimators(element, animators, touchX, touchY, startTime) {
     while (element) {
         if (element.nodeType == 1) {
-            var target = createTargetForElement(element, touchX, touchY, startTime);
-            if (target) {
+            var animator = createAnimatorForElement(element, touchX, touchY, startTime);
+            if (animator) {
                 // Look out for duplicates
                 var exists = false;
-                for (var j = 0; j < targets.length; ++j) {
-                    if (targets[j].node == element) {
+                for (var j = 0; j < animators.length; ++j) {
+                    if (animators[j].node == element) {
                         exists = true;
                         break;
                     }
                 }
                 if (!exists) {
-                    target = wrapTarget(target, touchX, touchY, startTime);
-                    if (target) {
-                        targets.push(target);                            
+                    animator = wrapAnimator(animator, touchX, touchY, startTime);
+                    if (animator) {
+                        animators.push(animator);                            
                     }
                 }
             }
@@ -494,18 +501,19 @@ function findTargets(element, targets, touchX, touchY, startTime) {
     }
 }
 
-function createTargetForElement(element, touchX, touchY, startTime) {
+function createAnimatorForElement(element, touchX, touchY, startTime) {
     var classes = element.className.split(' ');
     for (var i = 0; i < classes.length; ++i) {
         var name = classes[i];
-        if (scrollers[name]) {
-            var target = scrollers[name](element);
-            target.key = 'scrollable_'+name;
-            target.paginated = classes.indexOf('paginated') != -1;
-            if (!(target.key in element)) {
-                element[target.key] = target.initial ? target.initial(element) : 0;
+        if (directions[name]) {
+            var animator = directions[name](element);
+            animator.direction = name;
+            animator.key = 'scrollable_'+name;
+            animator.paginated = classes.indexOf('paginated') != -1;
+            if (!(animator.key in element)) {
+                element[animator.key] = animator.initial ? animator.initial(element) : 0;
             }
-            return target;
+            return animator;
         }
     }
 }
@@ -533,11 +541,11 @@ function stopAnimation() {
         clearInterval(animationInterval);
         animationInterval = 0;
 
-        for (var i = 0; i < touchTargets.length; ++i) {
-            var target = touchTargets[i];
-            target.terminator();
+        for (var i = 0; i < touchAnimators.length; ++i) {
+            var animator = touchAnimators[i];
+            animator.terminate();
         }
-        touchTargets = [];
+        touchAnimators = [];
     }
 }
 
@@ -568,9 +576,10 @@ function easeOutExpo(t, b, c, d) {
 
 // *************************************************************************************************
 
-function createXTarget(element) {
+function createXDirection(element) {
     var parent = element.parentNode;
     var baseline = isiOS5 ? (element.scrollable_horizontal||0) : 0;
+
     return {
         node: element,
         min: (-parent.scrollWidth+baseline) + parent.offsetWidth,
@@ -597,9 +606,10 @@ function createXTarget(element) {
     };
 }
 
-function createYTarget(element) {
+function createYDirection(element) {
     var parent = element.parentNode;
     var baseline = isiOS5 ? (element.scrollable_vertical||0) : 0;
+
     return {
         node: element,
         scrollbar: initScrollbar(element),
@@ -641,8 +651,6 @@ function dispatch(name, target, props) {
 }
 
 require.ready(function() {
-    window.scrollability = scrollability;
-
     document.addEventListener('touchstart', onTouchStart, false);
     document.addEventListener('scroll', onScroll, false);
     document.addEventListener('orientationchange', onOrientationChange, false);
