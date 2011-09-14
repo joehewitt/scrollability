@@ -65,63 +65,61 @@ var directions = {
     'vertical': createYDirection
 };
 
-var scrollability = exports.scrollability = {
-    globalScrolling: false,
-    directions: directions,
+exports.globalScrolling = false;
+exports.directions = directions;
 
-    flashIndicators: function() {
-        var scrollables = document.querySelectorAll('.scrollable.vertical');
-        for (var i = 0; i < scrollables.length; ++i) {
-            scrollability.scrollTo(scrollables[i], 0, 0, 20, true);
-        }            
-    },
+exports.flashIndicators = function() {
+    var scrollables = document.querySelectorAll('.scrollable.vertical');
+    for (var i = 0; i < scrollables.length; ++i) {
+        exports.scrollTo(scrollables[i], 0, 0, 20, true);
+    }            
+}
 
-    scrollToTop: function() {
-        var scrollables = document.getElementsByClassName('scrollable');
-        if (scrollables.length) {
-            var scrollable = scrollables[0];
-            if (scrollable.className.indexOf('vertical') != -1) {
-                scrollability.scrollTo(scrollable, 0, 0, kScrollToTopTime);
-            }
-        }
-    
-    },
-    
-    scrollTo: function(element, x, y, animationTime) {
-        stopAnimation();
-
-        var animator = createAnimatorForElement(element);
-        if (animator) {
-            animator = wrapAnimator(animator);
-            touchAnimators = [animator];
-            touchMoved = true;
-            if (animationTime) {
-                var orig = element[animator.key];
-                var dest = animator.filter(x, y);
-                var dir = dest - orig;
-                var startTime = new Date().getTime();
-                animationInterval = setInterval(function() {
-                    var d = new Date().getTime() - startTime;
-                    var pos = orig + ((dest-orig) * (d/animationTime));
-                    if ((dir < 0 && pos < dest) || (dir > 0 && pos > dest)) {
-                        pos = dest;
-                    }
-                    animator.sync(pos);
-                    if (pos == dest) {
-                        clearInterval(animationInterval);
-                        setTimeout(stopAnimation, 200);
-                    }
-                }, 20);
-            } else {
-                animator.updater(y);
-                stopAnimation();
-            }
+exports.scrollToTop = function() {
+    var scrollables = document.getElementsByClassName('scrollable');
+    if (scrollables.length) {
+        var scrollable = scrollables[0];
+        if (scrollable.className.indexOf('vertical') != -1) {
+            exports.scrollTo(scrollable, 0, 0, kScrollToTopTime);
         }
     }
-};
+
+}
+
+exports.scrollTo = function(element, x, y, animationTime) {
+    stopAnimation();
+
+    var animator = createAnimatorForElement(element);
+    if (animator) {
+        animator = wrapAnimator(animator);
+        touchAnimators = [animator];
+        touchMoved = true;
+        if (animationTime) {
+            var orig = element[animator.key];
+            var dest = animator.filter(x, y);
+            var dir = dest - orig;
+            var startTime = new Date().getTime();
+            animationInterval = setInterval(function() {
+                var d = new Date().getTime() - startTime;
+                var pos = orig + ((dest-orig) * (d/animationTime));
+                if ((dir < 0 && pos < dest) || (dir > 0 && pos > dest)) {
+                    pos = dest;
+                }
+                animator.sync(pos);
+                if (pos == dest) {
+                    clearInterval(animationInterval);
+                    setTimeout(stopAnimation, 200);
+                }
+            }, 20);
+        } else {
+            animator.updater(y);
+            stopAnimation();
+        }
+    }
+}
 
 function onLoad() {
-    scrollability.flashIndicators();
+    exports.flashIndicators();
 }
 
 function onScroll(event) {
@@ -129,7 +127,7 @@ function onScroll(event) {
         if (justChangedOrientation) {
             justChangedOrientation = false;
         } else if (isTouch) {
-            scrollability.scrollToTop();
+            exports.scrollToTop();
         }        
     });
 }
@@ -152,7 +150,7 @@ function onTouchStart(event) {
     touchMoved = false;
 
     touchAnimators = getTouchAnimators(event.target, touchX, touchY, startTime);
-    if (!touchAnimators.length && !scrollability.globalScrolling) {
+    if (!touchAnimators.length && !exports.globalScrolling) {
         return true;
     }
     
@@ -505,7 +503,7 @@ function createAnimatorForElement(element, touchX, touchY, startTime) {
     var classes = element.className.split(' ');
     if (classes.indexOf("scrollable") == -1)
         return;
-
+    
     for (var i = 0; i < classes.length; ++i) {
         var name = classes[i];
         if (directions[name]) {
