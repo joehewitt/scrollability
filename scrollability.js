@@ -503,6 +503,9 @@ function findAnimators(element, animators, touchX, touchY, startTime) {
 
 function createAnimatorForElement(element, touchX, touchY, startTime) {
     var classes = element.className.split(' ');
+    if (classes.indexOf("scrollable") == -1)
+        return;
+
     for (var i = 0; i < classes.length; ++i) {
         var name = classes[i];
         if (directions[name]) {
