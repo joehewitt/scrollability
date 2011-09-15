@@ -3,12 +3,8 @@
 "style scrollability/scrollbar.css"
 
 // function D() {
-//     if (console.log.apply) {
-//         console.log.apply(console, arguments);
-//     } else {
-//         var args = []; args.push.apply(args, arguments);
-//         console.log(args.join(' '));
-//     }
+//     var args = []; args.push.apply(args, arguments);
+//     console.log(args.join(' '));
 // }
 
 // *************************************************************************************************
@@ -91,6 +87,7 @@ exports.scrollTo = function(element, x, y, animationTime) {
 
     var animator = createAnimatorForElement(element);
     if (animator) {
+        animator.mute = true;
         animator = wrapAnimator(animator);
         touchAnimators = [animator];
         touchMoved = true;
@@ -249,8 +246,10 @@ function wrapAnimator(animator, startX, startY, startTime) {
         absMin += pageSpacing;
     }
 
-    if (!dispatch("scrollability-start", animator.node)) {
-        return null;        
+    if (!animator.mute) {
+        if (!dispatch("scrollability-start", animator.node)) {
+            return null;        
+        }
     }
 
     if (scrollbar) {
@@ -432,7 +431,9 @@ function wrapAnimator(animator, startX, startY, startTime) {
             scrollbar.style.opacity = '0';
             scrollbar.style.webkitTransition = 'opacity 0.33s linear';
         }
-        dispatch("scrollability-end", animator.node);
+        if (!animator.mute) {
+            dispatch("scrollability-end", animator.node);
+        }
     }
     
     animator.sync = sync;
