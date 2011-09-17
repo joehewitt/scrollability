@@ -458,12 +458,12 @@ function wrapTarget(target, startX, startY, startTime) {
     }
 
     function pullToRefresh(released) {
-        var pullUpMin = min - target.pullUpToRefresh.offsetHeight / 2;
-        var pullDownMin = max + target.pullDownToRefresh.offsetHeight;
         var pullState;
         
         return function() {
             if (target.pullUpToRefresh || target.pullDownToRefresh) {
+                var pullUpMin = min - target.pullUpToRefresh.offsetHeight / 2;
+                var pullDownMin = max + target.pullDownToRefresh.offsetHeight / 2;
                 if ( !released && 
                         (
                             (isPullingDown && ((pullDownMin < position && pullState) || (pullDownMin > position && !pullState)))
