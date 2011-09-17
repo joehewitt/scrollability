@@ -25,20 +25,24 @@ var isTouch = "ontouchstart" in window;
 
 var kAnimationStep = 4;
 
+var kFrameGranularity = 96;
+
+var kFriction = 0.99;
+
 // Number of pixels finger must move to determine horizontal or vertical motion
 var kLockThreshold = 10;
 
 // Maximum velocity for motion after user releases finger
-var kMaxVelocity = 12 / (window.devicePixelRatio||1);
+var kMaxVelocity = 9935;
 
 // Percentage of the page which content can be overscrolled before it must bounce back
-var kBounceLimit = 0.5;
+var kBounceLimit = 0.6;
 
 // Rate of deceleration when content has overscrolled and is slowing down before bouncing back
 var kBounceDecelRate = 0.01;
 
 // Duration of animation when bouncing back
-var kBounceTime = 200;
+var kBounceTime = 220;
 var kPageBounceTime = 60;
 
 // Percentage of viewport which must be scrolled past in order to snap to the next page
@@ -83,7 +87,6 @@ exports.scrollToTop = function() {
             exports.scrollTo(scrollable, 0, 0, kScrollToTopTime);
         }
     }
-
 }
 
 exports.scrollTo = function(element, x, y, animationTime) {
@@ -138,46 +141,32 @@ function onOrientationChange(event) {
 }
 
 function onTouchStart(event) {
-    D&&D(event.timeStamp);
     stopAnimation();
 
-    var touchCandidate = event.target;
     var touch = event.touches[0];
     var touched = null;
-    var startTime = new Date().getTime();
 
     touchX = startX = touch.clientX;
     touchY = startY = touch.clientY;
     touchDown = true;
     touchMoved = false;
-    D&&D('touch', touchY);
 
-    touchAnimators = getTouchAnimators(event.target, touchX, touchY, startTime);
+    touchAnimators = getTouchAnimators(event.target, touchX, touchY, event.timeStamp);
     if (!touchAnimators.length && !exports.globalScrolling) {
         return true;
     }
     
-    var holdTimeout = setTimeout(function() {
-        holdTimeout = 0;
-        touched = setTouched(touchCandidate);
-    }, 50);
-        
     var d = document;
     d.addEventListener('touchmove', onTouchMove, false);
     d.addEventListener('touchend', onTouchEnd, false);
 
-    animationInterval = setInterval(touchAnimation, 0);
-    event.preventDefault();
+    // XXXjoe DEBUG! REMOVE ME!
+    if (D) event.preventDefault();
 
     function onTouchMove(event) {
-        D&&D(event.timeStamp);
         event.preventDefault();
         touchMoved = true;
 
-        if (holdTimeout) {
-            clearTimeout(holdTimeout);
-            holdTimeout = 0;
-        }
         if (touched) {
             releaseTouched(touched);
             touched = null;
@@ -185,7 +174,6 @@ function onTouchStart(event) {
         var touch = event.touches[0];
         touchX = touch.clientX;
         touchY = touch.clientY;
-        D&&D('touch', touchY);
 
         // Reduce the candidates down to the one whose axis follows the finger most closely
         if (touchAnimators.length > 1) {
@@ -198,14 +186,11 @@ function onTouchStart(event) {
                 }
             }
         }
+
+        touchAnimation(event.timeStamp);
     }
 
     function onTouchEnd(event) {
-        if (holdTimeout) {
-            clearTimeout(holdTimeout);
-            holdTimeout = 0;
-        }
-
         // Simulate a click event when releasing the finger
         if (touched) {
             var evt = document.createEvent('MouseEvents'); 
@@ -217,14 +202,13 @@ function onTouchStart(event) {
         d.removeEventListener('touchmove', onTouchMove, false);
         d.removeEventListener('touchend', onTouchEnd, false);
         touchDown = false;
+
+        touchAnimation(event.timeStamp);
     }
 }
 
 function wrapAnimator(animator, startX, startY, startTime) {
-    if (animator.node.cleanup) {
-        animator.node.style.webkitAnimationPlayState = "paused";
-        // animator.node.cleanup(null, true);
-    }
+    animator.node.style.webkitAnimationPlayState = "paused";
 
     var trans = getComputedStyle(animator.node).webkitTransform;
     var y = new WebKitCSSMatrix(trans).m42;
@@ -249,11 +233,11 @@ function wrapAnimator(animator, startX, startY, startTime) {
     var pageLimit = viewport * kPageLimit;
     var lastTouch = startTouch = animator.filter(startX, startY);
     var lastTime = startTime;
+    var lastStep = 0;
     var stillTime = 0;
     var stillThreshold = 20;
     var snapped = false;
     var locked = false;
-    var deltas = [];
 
     var startPosition = position;
     
@@ -279,32 +263,12 @@ function wrapAnimator(animator, startX, startY, startTime) {
     }
     
     function animate(touch, time) {
-        var lastLastTime = lastTime;
-        var timeStep = time - lastTime;
-        var deltaTime = 1 / timeStep;
+        lastStep = time - lastTime;
         lastTime = time;
-        
+
         var continues = true;
         if (touchDown) {
-            var delta = touch - lastTouch;
-
-            // if (!delta) {
-            //     // Heuristics to prevent out delta=0 changes from making velocity=0 and
-            //     // stopping all motion in its tracks.  We need to distinguish when the finger
-            //     // has actually stopped moving from when the timer fired too quickly.
-            //     if (!stillTime) {
-            //         stillTime = time;
-            //     }
-            //     if (time - stillTime < stillThreshold) {
-            //         // D&&D('ignore', time-stillTime, stillThreshold)
-            //         // lastTime = lastLastTime;
-            //         return true;
-            //     }// else {
-            //     //     D&&D('hmm...', time-stillTime, stillThreshold)
-            //     // }
-            // } else {
-            //     stillTime = 0;
-            // }
+            velocity = touch - lastTouch;
 
             if (!locked && Math.abs(touch - startTouch) > kLockThreshold) {
                 locked = true;
@@ -312,10 +276,6 @@ function wrapAnimator(animator, startX, startY, startTime) {
             }
             
             lastTouch = touch;
-            velocity = delta / deltaTime;
-            if (delta) {
-                deltas.push({delta: delta, time: timeStep});
-            }
             
             // Apply resistance along the edges
             if (position > max && absMax == max && constrained) {
@@ -326,72 +286,33 @@ function wrapAnimator(animator, startX, startY, startTime) {
                 velocity *= (1.0 - excess / bounceLimit);
             }
 
-            position += velocity * deltaTime;
-            D&&D('move', velocity * deltaTime, timeStep);
+            position += velocity;
             sync(position, continues);
             animator.node.style.webkitAnimationName = '';
             return continues;
         } else {
-            var delta = touch - lastTouch;
-            if (delta) {
-                deltas.push({delta: delta, time: timeStep});
-            }
-            // var tx = new Date();
-            // D&&D('start velocity', velocity * deltaTime, t, position - startPosition, time - startTime,
-            //                         (position - startPosition) / (time - startTime));
-            // deltas.forEach(function(item, i) {
-            //     D&&D('delta', i, item.delta, 'time', item.time);
-            // });
-
-            // var delta = touch - lastTouch;
-            // if (delta) {
-            //     deltas.push({delta: delta, time: timeStep})
-            // }
-            // var tots = 0, totsi = 0, averaged = 0;
-            // for (var i = deltas.length-1; i >= 0 && averaged < 10; --i) {
-            //     var item = deltas[i];
-            //     // D&&D('delta', i, deltas.length, item.delta, 'time', item.time);
-            //     // if (i == deltas.length-1 && Math.abs(item.delta) <= Math.abs(deltas[i-1].delta)) {
-            //     //     D&&D('skip', item.delta, deltas[i-1].delta);
-            //     //     continue;
-            //     // }
-            //     tots += item.delta;
-            //     totsi += item.time;
-            //     ++averaged;
-            // }
-            velocity = (deltas[deltas.length-1].delta/deltas[deltas.length-1].time) * kAnimationStep;
-            // velocity = (tots/totsi) * kAnimationStep;
-            // D&&D('total', tots, 'time', totsi, averaged, velocity);
-            // delta 
-            // velocity = (delta / deltaTime) * kAnimationStep;
-            deltaTime = 1 / kAnimationStep;
-            // D&&D('delta', delta, 'velocity', velocity, 'deltaTime', deltaTime);
+            velocity = (velocity/lastStep) * kAnimationStep;
 
             var timeline = createKeyframes();
             var ss = document.styleSheets[0];
             var index = ss.rules.length;
             var rule = ss.insertRule(timeline.css, index);
             var scrollingRule = index;
-
             var oldCleanup = animator.node.cleanup;
             var cleanup = animator.node.cleanup = function(event, noSync) {
                 delete animator.node.cleanup;
-                // animator.node.removeEventListener("webkitAnimationEnd", cleanup, false);
-                // if (!noSync) {
-                //     sync(timeline.position);
-                // }
-                // animator.node.style.webkitAnimationName = '';
                 ss.deleteRule(scrollingRule);
             }
-        
-            // animator.node.addEventListener("webkitAnimationEnd", cleanup, false);
-            // D&&D('total', timeline.time);
-            animator.node.style.webkitAnimation = timeline.name + " " + timeline.time + "ms 0 1 linear both";
-            animator.node.style.webkitAnimationPlayState = "running";
+            
+            if (timeline.time) {
+                animator.node.style.webkitAnimation = timeline.name + " " + timeline.time + "ms 0 1 linear both";
+                animator.node.style.webkitAnimationPlayState = "running";
+            } else {                
+                animator.node.style.webkitAnimation = '';
+            }
             if (oldCleanup) {
                 oldCleanup();
             }
-            // D&&D('took', new Date().getTime() - tx.getTime());
             return false;
         }
     }
@@ -419,19 +340,18 @@ function wrapAnimator(animator, startX, startY, startTime) {
         var name = "scrollability" + (animationIndex++);
         var cssKeyframes = ['@-webkit-keyframes ' + name + ' {'];
 
-        var lastPos;
+        // var lastPos;
         // keyframes.forEach(function(keyframe) {
         var l = keyframes.length;
         for (var i = 0; i < l; ++i) {
             var keyframe = keyframes[i];
             var percent = Math.round((keyframe.time / time) * 100);
             var pos = Math.round(keyframe.position);
-            // var frame = percent == 0 ? '0%' : percent + '%';
+            var frame = percent == 0 ? '0%' : percent + '%';
             // if (pos != lastPos || percent == 100) {
                 var keyframe = percent + '% { -webkit-transform: translate3d(0, ' + pos + 'px, 0) }';
                 cssKeyframes.push(keyframe);
-                lastPos = pos;
-                D&&D(keyframe);
+            //     lastPos = pos;
             // }
         }
         // });
@@ -488,7 +408,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
                     decelOrigin = velocity;
                 }
 
-                velocity = velocity * 0.99;
+                velocity = velocity * kFriction;
 
                 if (Math.floor(Math.abs(velocity)*100) == 0) {
                     continues = false;
@@ -501,7 +421,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
         
         function saveKeyframe(pos, continues) {
             var diff = position - lastPosition;
-            if (time-lastSyncTime >= 24 || (lastDiff < 0 != diff < 0)) {
+            if (time-lastSyncTime >= kFrameGranularity || (lastDiff < 0 != diff < 0)) {
                 keyframes.push({position: position, time: time});
 
                 lastDiff = diff;
@@ -553,16 +473,6 @@ function wrapAnimator(animator, startX, startY, startTime) {
     }
     
     function terminate() {
-        // Snap to the integer endpoint, since position may be a subpixel value while animating
-        // if (paginated) {
-        //     var pageIndex = Math.round(position/viewport);
-        //     sync(pageIndex * (viewport+pageSpacing));
-        // } else  if (position > max && constrained) {
-        //     sync(max);
-        // } else if (position < min && constrained) {
-        //     sync(min);
-        // }
-
         // // Hide the scrollbar
         // if (scrollbar) {
         //     scrollbar.style.opacity = '0';
@@ -579,9 +489,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
     return animator;
 }
 
-function touchAnimation() {
-    var time = new Date().getTime();
-    
+function touchAnimation(time) {
     // Animate each of the animators
     for (var i = 0; i < touchAnimators.length; ++i) {
         var animator = touchAnimators[i];
@@ -747,7 +655,7 @@ function createXDirection(element) {
 
 function createYDirection(element) {
     var parent = element.parentNode;
-    var baseline = 0;//isiOS5 ? (element.scrollable_vertical||0) : 0;
+    var baseline = isiOS5 ? (element.scrollable_vertical||0) : 0;
 
     return {
         node: element,

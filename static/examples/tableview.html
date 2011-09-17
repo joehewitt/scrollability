@@ -24,7 +24,7 @@ html {
     left: 0;
     top: 24px;
     bottom: 24px;
-    width: 100%;
+    width: 320px;
     background: #fff;
     overflow: hidden;
 /*    overflow: scroll;
@@ -144,7 +144,7 @@ addEventListener('DOMContentLoaded', function() {
         item.className = 'item';
         item.innerHTML = names[i%names.length];
         page.appendChild(item);
-        if (page.offsetHeight > container.offsetHeight*6) {
+        if (page.offsetHeight > container.offsetHeight*1) {
             break;
         }
     }
