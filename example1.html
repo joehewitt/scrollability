@@ -15,18 +15,16 @@ html {
     font-family: Helvetica;
 }
 
-.scrollable {
-    -webkit-transform: translate3d(0,0,0);
-}
-
 #container {
     position: absolute;
     left: 0;
     top: 24px;
     bottom: 24px;
-    width: 320px;
+    width: 100%;
     background: #fff;
     overflow: hidden;
+/*    overflow: scroll;
+    -webkit-overflow-scrolling: touch;*/
 }
     
 .item {
@@ -77,7 +75,7 @@ html {
 
 </style>
 
-<script type="text/javascript" src="scrollability.js"></script>
+<script type="text/javascript" src="/scrollability.min.js"></script>
 
 <script language="javascript">
 
@@ -142,7 +140,7 @@ addEventListener('DOMContentLoaded', function() {
         item.className = 'item';
         item.innerHTML = names[i%names.length];
         page.appendChild(item);
-        if (page.offsetHeight > container.offsetHeight*6) {
+        if (page.offsetHeight > container.offsetHeight*5) {
             break;
         }
     }
@@ -152,10 +150,10 @@ addEventListener('DOMContentLoaded', function() {
     
 </head>
 <body>
-    <div class="bar top">Scrollability Demo</div>
-    <div class="bar bottom">Footer</div>
+    <div class="bar top" onclick="location.reload(true)">Scrollability Demo</div>
+    <div class="bar bottom" onclick="showLog()">Footer</div>
     <div id="container">
-        <div id="page" class="scrollable vertical"></div>
+        <div id="page" class="scrollable vertical universal"></div>
     </div>
 </body>
 </html>

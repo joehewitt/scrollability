@@ -5,19 +5,17 @@
 <title>Scrollability</title> 
 <meta charset="utf-8"/> 
 <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0" /> 
+<meta name="apple-mobile-web-app-capable" content="yes" /> 
+<meta name="apple-mobile-web-app-status-bar-style" content="black" /> 
 <style type="text/css"> 
  
 html, body {
-    overflow: hidden;
     padding: 0;
     margin: 0;
     background: #000;
+    overflow: hidden;
 }
  
-.scrollable {
-    -webkit-transform: translate3d(0,0,0);
-}
-
 #container {
     position: absolute;
     left: 0;
@@ -27,9 +25,16 @@ html, body {
     white-space: nowrap;
 }
  
+ .scrollable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+ }
+
 .page {
     display: inline-block;
-    width: 100%;
+    width: 320px;
     height: 100%;
     margin-right: 20px;
     color: #fff;
@@ -41,7 +46,7 @@ html, body {
  
 </style> 
  
-<script type="text/javascript" src="scrollability.js"></script> 
+<script type="text/javascript" src="/scrollability.min.js"></script>
 
 <script language="javascript">
 
@@ -53,7 +58,7 @@ var colors = [
 ];
 
 addEventListener('DOMContentLoaded', function() {
-    var container = document.getElementById('container');
+    var container = document.querySelector('.scrollable.horizontal');
     for (var i = 0; i < colors.length; ++i) {
         var page = document.createElement('div');
         page.className = 'page';
@@ -65,5 +70,5 @@ addEventListener('DOMContentLoaded', function() {
 
 </script>
 </head> 
-<body><div id="container" class="scrollable horizontal paginated"></div></body>
+<body><div id="container"><div class="scrollable horizontal paginated"></div></div></body>
 </html>
