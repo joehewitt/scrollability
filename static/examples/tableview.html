@@ -15,16 +15,12 @@ html {
     font-family: Helvetica;
 }
 
-.scrollable {
-    -webkit-transform: translate3d(0,0,0);
-}
-
 #container {
     position: absolute;
     left: 0;
     top: 24px;
     bottom: 24px;
-    width: 320px;
+    width: 100%;
     background: #fff;
     overflow: hidden;
 /*    overflow: scroll;
@@ -144,7 +140,7 @@ addEventListener('DOMContentLoaded', function() {
         item.className = 'item';
         item.innerHTML = names[i%names.length];
         page.appendChild(item);
-        if (page.offsetHeight > container.offsetHeight*13) {
+        if (page.offsetHeight > container.offsetHeight*5) {
             break;
         }
     }
