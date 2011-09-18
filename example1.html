@@ -146,6 +146,11 @@ addEventListener('DOMContentLoaded', function() {
     }
 });
 
+document.addEventListener('touchstart', function(event) {
+    // Prevent text selection
+    event.preventDefault();
+}, false);
+
 </script>
     
 </head>
@@ -153,7 +158,7 @@ addEventListener('DOMContentLoaded', function() {
     <div class="bar top" onclick="location.reload(true)">Scrollability Demo</div>
     <div class="bar bottom" onclick="showLog()">Footer</div>
     <div id="container">
-        <div id="page" class="scrollable vertical universal"></div>
+        <div id="page" class="scrollable vertical"></div>
     </div>
 </body>
 </html>
