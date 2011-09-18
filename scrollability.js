@@ -4,11 +4,11 @@
 
 // var logs = [];
 
-function D() {
-    var args = []; args.push.apply(args, arguments);
-    console.log(args.join(' '));
-    // logs.push(args.join(' '));
-}
+// function D() {
+//     var args = []; args.push.apply(args, arguments);
+//     console.log(args.join(' '));
+//     // logs.push(args.join(' '));
+// }
 
 // window.showLog = function() {
 //     document.querySelector('.scrollable').innerHTML = logs.join('<br>');
@@ -73,7 +73,6 @@ var directions = {
     'vertical': createYDirection
 };
 
-exports.globalScrolling = false;
 exports.directions = directions;
 
 exports.flashIndicators = function() {
@@ -96,7 +95,7 @@ function onTouchStart(event) {
     touchMoved = false;
 
     touchAnimators = getTouchAnimators(event.target, touchX, touchY, event.timeStamp);
-    if (!touchAnimators.length && !exports.globalScrolling) {
+    if (!touchAnimators.length) {
         return true;
     }
     
@@ -497,7 +496,7 @@ function getTouchAnimators(node, touchX, touchY, startTime) {
     findAnimators(node, animators, touchX, touchY, startTime);
 
     // Get universally scrollable elements
-    var candidates = document.querySelectorAll('.scrollable.global');
+    var candidates = document.querySelectorAll('.scrollable.universal');
     for (var j = 0; j < candidates.length; ++j) {
         findAnimators(candidates[j], animators, touchX, touchY, startTime);
     }
