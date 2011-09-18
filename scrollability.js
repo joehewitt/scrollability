@@ -6,8 +6,8 @@
 
 // function D() {
 //     var args = []; args.push.apply(args, arguments);
-//     console.log(args.join(' '));
-//     // logs.push(args.join(' '));
+//     // console.log(args.join(' '));
+//     logs.push(args.join(' '));
 // }
 
 // window.showLog = function() {
@@ -24,8 +24,11 @@ var isTouch = "ontouchstart" in window;
 
 // *************************************************************************************************
 
-// The firction applied while decelerating
+// The friction applied while decelerating
 var kFriction = 0.99;
+
+// If the velocity is below this threshold when the finger is released, animation will stop
+var kStoppedThreshold = 4;
 
 // Number of pixels finger must move to determine horizontal or vertical motion
 var kLockThreshold = 10;
@@ -88,7 +91,7 @@ function onLoad() {
 
 function onTouchStart(event) {
     var touch = isTouch ? event.touches[0] : event;
-    var touched = null;
+    // var touched = null;
 
     touchX = startX = touch.clientX;
     touchY = startY = touch.clientY;
@@ -103,16 +106,16 @@ function onTouchStart(event) {
     d.addEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
     d.addEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
 
-    if (D) event.preventDefault();
+    // if (D) event.preventDefault();
     
     function onTouchMove(event) {
         event.preventDefault();
         touchMoved = true;
 
-        if (touched) {
-            releaseTouched(touched);
-            touched = null;
-        }
+        // if (touched) {
+        //     releaseTouched(touched);
+        //     touched = null;
+        // }
 
         var touch = isTouch ? event.touches[0] : event;
         touchX = touch.clientX;
@@ -138,12 +141,12 @@ function onTouchStart(event) {
 
     function onTouchEnd(event) {
         // Simulate a click event when releasing the finger
-        if (touched) {
-            var evt = document.createEvent('MouseEvents'); 
-            evt.initMouseEvent('click', true, true, window, 1);
-            touched[0].dispatchEvent(evt); 
-            releaseTouched(touched);
-        }
+        // if (touched) {
+        //     var evt = document.createEvent('MouseEvents'); 
+        //     evt.initMouseEvent('click', true, true, window, 1);
+        //     touched[0].dispatchEvent(evt); 
+        //     releaseTouched(touched);
+        // }
         
         d.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
         d.removeEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
@@ -171,7 +174,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
     var lastTouch = startTouch = animator.filter(startX, startY);
     var lastTime = startTime;
     var timeStep = 0;
-    var snapped = false;
+    var stopped = 0;
 
     if (paginated) {
         var excess = Math.round(Math.abs(absMin) % viewport);
@@ -216,7 +219,16 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         velocity = touch - lastTouch;
         lastTouch = touch;
-                
+        
+        if (Math.abs(velocity) >= kStoppedThreshold) {
+            if (stopped) {
+                --stopped;
+            }
+            stopped = 0;
+        } else {
+            ++stopped;
+        }
+
         // Apply resistance along the edges
         if (constrained) {
             if (position > max && absMax == max) {
@@ -240,13 +252,27 @@ function wrapAnimator(animator, startX, startY, startTime) {
     }
 
     function takeoff() {
+        if (stopped) {
+            terminate();
+            velocity = 0;
+        }
+
         position += velocity;
         reposition(position);
 
         velocity = (velocity/timeStep) * kAnimationStep;
 
         var timeline = createTimeline();
-        dispatch("scrollability-animate", node, {direction: animator.direction, keyframes: timeline.keyframes});
+        if (!timeline.time) {
+            terminate();
+            return;
+        }
+
+        dispatch("scrollability-animate", node, {
+            direction: animator.direction,
+            time: timeline.time,
+            keyframes: timeline.keyframes
+        });
 
         var ss = document.styleSheets[0];
         var ruleIndex = ss.rules.length;
@@ -309,17 +335,17 @@ function wrapAnimator(animator, startX, startY, startTime) {
                     if (max != absMax) {
                         max += viewport+pageSpacing;
                         min += viewport+pageSpacing;
-                        // var totalSpacing = min % viewport;
-                        // var page = -Math.round((position+viewport-totalSpacing)/viewport);
-                        // dispatch("scrollability-page", animator.node, {page: page});
+                        var totalSpacing = min % viewport;
+                        var page = -Math.round((position+viewport-totalSpacing)/viewport);
+                        dispatch("scrollability-page", animator.node, {page: page});
                     }
                 } else {
                     if (min != absMin) {
                         max -= viewport+pageSpacing;
                         min -= viewport+pageSpacing;
-                        // var totalSpacing = min % viewport;
-                        // var page = -Math.round((position-viewport-totalSpacing)/viewport);
-                        // dispatch("scrollability-page", animator.node, {page: page});
+                        var totalSpacing = min % viewport;
+                        var page = -Math.round((position-viewport-totalSpacing)/viewport);
+                        dispatch("scrollability-page", animator.node, {page: page});
                     }
                 }
             }
@@ -429,8 +455,8 @@ function wrapAnimator(animator, startX, startY, startTime) {
         var spos = scrollbarPosition(pos);
         if (spos && scrollbar) {
             scrollbar.style.webkitTransformOrigin = 'top left';
-            scrollbar.style.webkitTransform = 'translate3d(0, ' + spos.position + 'px,  0) '
-                                              + 'scaleY(' + spos.height + ')';
+            scrollbar.style.webkitTransform = 'translate3d(0, ' + Math.round(spos.position) + 'px,  0) '
+                                              + 'scaleY(' + Math.round(spos.height) + ')';
 
             if (touchMoved) {
                 fadeIn(scrollbar);
@@ -550,13 +576,13 @@ function generateCSSKeyframes(animator, keyframes, name, time) {
 
     keyframes.forEach(function(keyframe) {
         var percent = (keyframe.time / time) * 100;
-        var keyframe = percent + '% {'
+        var frame = percent + '% {'
             + (keyframe.height !== undefined
-                    ? '-webkit-transform: translate3d(0, ' + keyframe.position + 'px, 0) '
-                      + 'scaleY(' + keyframe.height + ');'
+                    ? '-webkit-transform: translate3d(0, ' + Math.round(keyframe.position) + 'px, 0) '
+                      + 'scaleY(' + Math.round(keyframe.height) + ');'
                     : '-webkit-transform: ' + animator.update(keyframe.position) + ';'
             ) + '}';
-        lines.push(keyframe);
+        lines.push(frame);
     });
 
     lines.push('}');
@@ -564,23 +590,23 @@ function generateCSSKeyframes(animator, keyframes, name, time) {
     return lines.join('\n');    
 }
 
-function setTouched(target) {
-    var touched = [];
-    for (var n = target; n; n = n.parentNode) {
-        if (n.nodeType == 1) {
-            n.className = (n.className ? n.className + ' ' : '') + 'touched';
-            touched.push(n);
-        }
-    }
-    return touched;
-}
+// function setTouched(target) {
+//     var touched = [];
+//     for (var n = target; n; n = n.parentNode) {
+//         if (n.nodeType == 1) {
+//             n.className = (n.className ? n.className + ' ' : '') + 'touched';
+//             touched.push(n);
+//         }
+//     }
+//     return touched;
+// }
 
-function releaseTouched(touched) {
-    for (var i = 0; i < touched.length; ++i) {
-        var n = touched[i];
-        n.className = n.className.replace('touched', '');
-    }
-}
+// function releaseTouched(touched) {
+//     for (var i = 0; i < touched.length; ++i) {
+//         var n = touched[i];
+//         n.className = n.className.replace('touched', '');
+//     }
+// }
 
 function moveElement(element, x, y) {
     element.style.webkitTransform = 'translate3d('
@@ -671,10 +697,8 @@ function createYDirection(element) {
 function play(node, name, time) {
     if (name) {
         node.style.webkitAnimation = name + " " + time + "ms linear both";
-    } else {
-        node.style.webkitAnimation = "";
     }
-    node.style.webkitAnimationPlayState = play ? "running" : "paused";
+    node.style.webkitAnimationPlayState = name ? "running" : "paused";
 }
 
 function fadeIn(node) {
