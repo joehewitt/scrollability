@@ -18,7 +18,7 @@ html {
 #container {
     position: absolute;
     left: 0;
-    top: 24px;
+    top: 44px;
     bottom: 24px;
     width: 100%;
     background: #fff;
@@ -51,11 +51,15 @@ html {
     font-size: 10px;
     font-weight: bold;
     text-align: center;
+    -webkit-box-sizing: border-box;
 }
 
 .bar.top {
     top: 0;
+    height: 44px;
     border-bottom: 1px solid #000;
+    padding: 10px;
+    font-size: 22px;
 }
 
 .bar.bottom {
@@ -140,7 +144,7 @@ addEventListener('DOMContentLoaded', function() {
         item.className = 'item';
         item.innerHTML = names[i%names.length];
         page.appendChild(item);
-        if (page.offsetHeight > container.offsetHeight*5) {
+        if (page.offsetHeight > container.offsetHeight*6) {
             break;
         }
     }
@@ -151,12 +155,17 @@ document.addEventListener('touchstart', function(event) {
     event.preventDefault();
 }, false);
 
+document.addEventListener('mousedown', function(event) {
+    // Prevent text selection
+    event.preventDefault();
+}, false);
+
 </script>
     
 </head>
 <body>
     <div class="bar top" onclick="location.reload(true)">Scrollability Demo</div>
-    <div class="bar bottom" onclick="showLog()">Footer</div>
+    <div class="bar bottom" onclick="if (window.showLog) showLog()">Footer</div>
     <div id="container">
         <div id="page" class="scrollable vertical"></div>
     </div>
