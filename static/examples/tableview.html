@@ -144,7 +144,7 @@ addEventListener('DOMContentLoaded', function() {
         item.className = 'item';
         item.innerHTML = names[i%names.length];
         page.appendChild(item);
-        if (page.offsetHeight > container.offsetHeight*6) {
+        if (page.offsetHeight > container.offsetHeight*7) {
             break;
         }
     }
@@ -152,7 +152,12 @@ addEventListener('DOMContentLoaded', function() {
 
 document.addEventListener('touchstart', function(event) {
     // Prevent text selection
-    // event.preventDefault();
+    event.preventDefault();
+}, false);
+
+document.addEventListener('mousedown', function(event) {
+    // Prevent text selection
+    event.preventDefault();
 }, false);
 
 </script>

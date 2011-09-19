@@ -25,7 +25,7 @@ var isTouch = "ontouchstart" in window;
 // *************************************************************************************************
 
 // The friction applied while decelerating
-var kFriction = 0.99;
+var kFriction = 0.9925;
 
 // If the velocity is below this threshold when the finger is released, animation will stop
 var kStoppedThreshold = 4;
@@ -40,7 +40,7 @@ var kBounceLimit = 0.75;
 var kBounceDecelRate = 0.01;
 
 // Duration of animation when bouncing back
-var kBounceTime = 220;
+var kBounceTime = 240;
 var kPageBounceTime = 140;
 
 // Percentage of viewport which must be scrolled past in order to snap to the next page
@@ -54,9 +54,6 @@ var kScrollbarMargin = 2;
 
 // The width or height of the scrollbar along the animated axis
 var kScrollbarSize = 7;
-
-// Time to scroll to top
-var kScrollToTopTime = 200;
 
 // The number of milliseconds to increment while simulating animation
 var kAnimationStep = 4;
@@ -91,9 +88,8 @@ function onLoad() {
 
 require.ready(function() {
     var d = document;
+
     d.addEventListener(isTouch ? 'touchstart' : 'mousedown', onTouchStart, false);
-    d.addEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
-    d.addEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
     // window.addEventListener('load', onLoad, false);
 
     function onTouchStart(event) {
@@ -108,7 +104,10 @@ require.ready(function() {
         if (!touchAnimators.length) {
             return true;
         }
-        
+    
+        d.addEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
+        d.addEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
+    
         // if (D) event.preventDefault();
     }
         
@@ -151,6 +150,9 @@ require.ready(function() {
         //     touched[0].dispatchEvent(evt); 
         //     releaseTouched(touched);
         // }
+
+        d.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
+        d.removeEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
         
         touchAnimation(event.timeStamp);
     }
@@ -176,6 +178,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
     var lastTime = startTime;
     var timeStep = 0;
     var stopped = 0;
+    var tracked = [];
 
     if (paginated) {
         var excess = Math.round(Math.abs(absMin) % viewport);
@@ -188,34 +191,40 @@ function wrapAnimator(animator, startX, startY, startTime) {
         absMin += pageSpacing;
     }
 
-    // XXXjoe This stuff only needs to be done if animation was running when touch began
-    if (node.dirtyEnding) {
-        play(node);
-        if (scrollbar) {
-            play(scrollbar);
-        }
-
-        node.dirtyEnding();
-
-        reposition(position);
-    }
-    
     if (!animator.mute) {
-        if (!dispatch("scrollability-start", node)) {
+        if (!dispatch("scrollability-start", node, {track: addTracker})) {
             return null;        
         }
     }
 
-    if (scrollbar && !scrollbar.parentNode) {
-        node.parentNode.appendChild(scrollbar);
+    if (scrollbar) {
+        addTracker(scrollbar, trackScrollbar);
+        if (!scrollbar.parentNode) {
+            node.parentNode.appendChild(scrollbar);            
+        }
     }
 
-    animator.reposition = reposition;
+    if (node.dirtyEnding) {
+        play(node);
+        tracked.forEach(function(item) {
+            play(item.node);
+        });
+
+        node.dirtyEnding();
+
+        update(position);
+    }
+    
+    animator.reposition = update;
     animator.track = track;
     animator.takeoff = takeoff;
     animator.terminate = terminate;
     return animator;
     
+    function addTracker(node, callback) {
+        tracked.push({node: node, callback: callback, keyframes: []});
+    }
+
     function track(touch, time) {
         timeStep = time - lastTime;
         lastTime = time;
@@ -245,13 +254,36 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         position += velocity;
 
-        reposition(position);
+        update(position);
 
         node.style.webkitAnimationName = '';
-        if (scrollbar) {
-            scrollbar.style.webkitAnimationName = '';            
-        }
+        tracked.forEach(function(item) {
+            item.node.style.webkitAnimationName = '';
+        });
         return true;
+    }
+
+    function trackScrollbar(position) {
+        var range = -min - max;
+        if (scrollbar && viewport < range) {
+            var viewable = viewport - kScrollbarMargin*2;
+            var height = (viewable/range) * viewable;
+            var scrollPosition;
+            if (position > max) {
+                height = Math.max(height - (position-max), kScrollbarSize);
+                scrollPosition = 0;
+            } else if (position < min) {
+                var h = height - (min - position);
+                height = Math.max(height - (min - position), kScrollbarSize);
+                scrollPosition = viewable-height;
+            } else {
+                scrollPosition = (Math.abs(position) / range) * (viewable-height);
+            }
+            scrollPosition += kScrollbarMargin;
+
+            return 'translate3d(0, ' + Math.round(scrollPosition) + 'px,  0) '
+                   + 'scaleY(' + Math.round(height) + ')';
+        }
     }
 
     function takeoff() {
@@ -260,8 +292,8 @@ function wrapAnimator(animator, startX, startY, startTime) {
             velocity = 0;
         }
 
-        position += velocity;
-        reposition(position);
+        // position += velocity;
+        update(position+velocity);
 
         velocity = (velocity/timeStep) * kAnimationStep;
 
@@ -280,7 +312,12 @@ function wrapAnimator(animator, startX, startY, startTime) {
         var ss = document.styleSheets[0];
         var ruleIndex = ss.rules.length;
         ss.insertRule(timeline.css, ruleIndex);
-        ss.insertRule(timeline.scrollbarCSS, ruleIndex+1);
+
+        tracked.forEach(function(item, i) {
+            item.name = 'scrollability-track'+(animationIndex++);
+            var css = generateCSSKeyframes(animator, item.keyframes, item.name, timeline.time);
+            ss.insertRule(css, ruleIndex+i+1);
+        });
 
         var dirtyEnding = node.dirtyEnding = function() {
             delete node.dirtyEnding;
@@ -295,6 +332,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
             }
         }
         function tidyEnding() {
+            reposition(timeline.keyframes[timeline.keyframes.length-1].position);
             terminate();
         }
         node.addEventListener("webkitAnimationEnd", tidyEnding, false);
@@ -303,14 +341,16 @@ function wrapAnimator(animator, startX, startY, startTime) {
         node.cleanup = function() {
             delete node.cleanup;
             ss.deleteRule(ruleIndex);
-            ss.deleteRule(ruleIndex);
+            tracked.forEach(function(item) {
+                ss.deleteRule(ruleIndex);
+            });
         }
         
-        if (scrollbar) {
-            play(scrollbar, timeline.scrollbarName, timeline.time);        
-        }
-
         play(node, timeline.name, timeline.time);
+
+        tracked.forEach(function(item) {
+            play(item.node, item.name, timeline.time);
+        });
 
         if (cleanup) {
             cleanup();
@@ -326,9 +366,8 @@ function wrapAnimator(animator, startX, startY, startTime) {
         var decelDelta;
         var decelStep = 0;
         var decelTime;
-        var enterVelocity;
+        // var enterVelocity;
         var keyframes = [];
-        var scrollframes = [];
 
         if (paginated) {
             // When finger is released, decide whether to jump to next/previous page
@@ -338,17 +377,19 @@ function wrapAnimator(animator, startX, startY, startTime) {
                     if (max != absMax) {
                         max += viewport+pageSpacing;
                         min += viewport+pageSpacing;
-                        var totalSpacing = min % viewport;
-                        var page = -Math.round((position+viewport-totalSpacing)/viewport);
-                        dispatch("scrollability-page", animator.node, {page: page});
+
+                        // var totalSpacing = min % viewport;
+                        // var page = -Math.round((position+viewport-totalSpacing)/viewport);
+                        // dispatch("scrollability-page", animator.node, {page: page});
                     }
                 } else {
                     if (min != absMin) {
                         max -= viewport+pageSpacing;
                         min -= viewport+pageSpacing;
-                        var totalSpacing = min % viewport;
-                        var page = -Math.round((position-viewport-totalSpacing)/viewport);
-                        dispatch("scrollability-page", animator.node, {page: page});
+
+                        // var totalSpacing = min % viewport;
+                        // var page = -Math.round((position-viewport-totalSpacing)/viewport);
+                        // dispatch("scrollability-page", animator.node, {page: page});
                     }
                 }
             }
@@ -369,15 +410,14 @@ function wrapAnimator(animator, startX, startY, startTime) {
                         decelOrigin = position;
                         decelDelta = max - position;
                     }
-
                     position = easeOutExpo(decelStep, decelOrigin, decelDelta, bounceTime);
                     continues = ++decelStep <= bounceTime && Math.floor(Math.abs(position)) > max;
                 }
             } else if (position < min && constrained) {
                 if (velocity < 0) {
-                    if (!enterVelocity) {
-                        enterVelocity = velocity;
-                    }
+                    // if (!enterVelocity) {
+                    //     enterVelocity = velocity;
+                    // }
                     // Slowing down
                     var excess = min - position;
                     var elasticity = (1.0 - excess / bounceLimit);
@@ -398,10 +438,10 @@ function wrapAnimator(animator, startX, startY, startTime) {
             } else {
                 velocity *= kFriction;
                 position += velocity;
-                continues = Math.floor(Math.abs(velocity)*100) > 0;
+                continues = Math.floor(Math.abs(velocity)*10) > 0;
             }
 
-            saveKeyframe();            
+            saveKeyframe(!continues);            
 
             time += kAnimationStep;
         }
@@ -420,25 +460,21 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         var totalTime = keyframes.length ? keyframes[keyframes.length-1].time : 0;
 
-        var name = "scrollability" + (animationIndex);
+        var name = "scrollability" + (animationIndex++);
         var css = generateCSSKeyframes(animator, keyframes, name, totalTime);
 
-        var scrollbarName = "scrollability-scrollbar" + (animationIndex++);
-        var scrollbarCSS = generateCSSKeyframes(animator, scrollframes, scrollbarName, totalTime);
-        return {time: totalTime, position: position, keyframes: keyframes,
-                name: name, css: css, scrollbarName: scrollbarName, scrollbarCSS: scrollbarCSS};
+        return {time: totalTime, position: position, keyframes: keyframes, name: name, css: css};
 
         function saveKeyframe(force) {
             var diff = position - lastPosition;
             // Add a new frame when we've changed direction, or passed the prescribed granularity
-            if (force || time-lastKeyTime >= kKeyframeIncrement || (lastDiff < 0 != diff < 0)) {
+            if (force || (time >= kKeyframeIncrement
+                          && (time-lastKeyTime >= kKeyframeIncrement || (lastDiff < 0 != diff < 0)))) {
                 keyframes.push({position: position, time: time});
 
-                var psos = scrollbarPosition(position);
-                if (psos) {
-                    psos.time = time;
-                    scrollframes.push(psos);
-                }
+                tracked.forEach(function(item) {
+                    item.keyframes.push({time: time, css: item.callback(position)});;
+                });
 
                 lastDiff = diff;
                 lastPosition = position;
@@ -447,46 +483,26 @@ function wrapAnimator(animator, startX, startY, startTime) {
         }
     }
 
-    function reposition(pos) {
+    function update(pos) {
         if (!dispatch("scrollability-scroll", node,
             {direction: animator.direction, position: pos})) {
             return;
         }
 
+        reposition(pos);
+
+        if (scrollbar && touchMoved) {
+            fadeIn(scrollbar);
+        }
+    }
+
+    function reposition(pos) {
+        // D&&D('move to', pos);
         node.style.webkitTransform = animator.update(pos);
 
-        var spos = scrollbarPosition(pos);
-        if (spos && scrollbar) {
-            scrollbar.style.webkitTransformOrigin = 'top left';
-            scrollbar.style.webkitTransform = 'translate3d(0, ' + Math.round(spos.position) + 'px,  0) '
-                                              + 'scaleY(' + Math.round(spos.height) + ')';
-
-            if (touchMoved) {
-                fadeIn(scrollbar);
-            }
-        }        
-    }
-    
-    function scrollbarPosition(pos) {
-        var range = -min - max;
-        if (scrollbar && viewport < range) {
-            var viewable = viewport - kScrollbarMargin*2;
-            var height = (viewable/range) * viewable;
-            var scrollPosition = 0;
-            if (pos > max) {
-                height = Math.max(height - (pos-max), kScrollbarSize);
-                scrollPosition = 0;
-            } else if (pos < min) {
-                var h = height - (min - pos);
-                height = Math.max(height - (min - pos), kScrollbarSize);
-                scrollPosition = viewable-height;
-            } else {
-                scrollPosition = (Math.abs(pos) / range) * (viewable-height);
-            }
-            scrollPosition += kScrollbarMargin;
-
-            return {height: height, position: scrollPosition};
-        }            
+        tracked.forEach(function(item) {
+            item.node.style.webkitTransform = item.callback(pos);
+        });
     }
 
     function terminate() {
@@ -521,13 +537,15 @@ function touchAnimation(time, touchDown) {
 function getTouchAnimators(node, touchX, touchY, startTime) {
     var animators = [];
     
-    // Find scrollable nodes that were directly touched
-    findAnimators(node, animators, touchX, touchY, startTime);
-
     // Get universally scrollable elements
     var candidates = document.querySelectorAll('.scrollable.universal');
     for (var j = 0; j < candidates.length; ++j) {
         findAnimators(candidates[j], animators, touchX, touchY, startTime);
+    }
+
+    if (!candidates.length) {
+        // Find scrollable nodes that were directly touched
+        findAnimators(node, animators, touchX, touchY, startTime);
     }
 
     return animators;
@@ -579,12 +597,10 @@ function generateCSSKeyframes(animator, keyframes, name, time) {
 
     keyframes.forEach(function(keyframe) {
         var percent = (keyframe.time / time) * 100;
-        var frame = percent + '% {'
-            + (keyframe.height !== undefined
-                    ? '-webkit-transform: translate3d(0, ' + Math.round(keyframe.position) + 'px, 0) '
-                      + 'scaleY(' + Math.round(keyframe.height) + ');'
-                    : '-webkit-transform: ' + animator.update(keyframe.position) + ';'
-            ) + '}';
+        var frame = Math.floor(percent) + '% {'
+            + '-webkit-transform: ' + (keyframe.css || animator.update(keyframe.position)) + ';'
+            + '}';
+        // D&&D(frame);
         lines.push(frame);
     });
 
@@ -610,13 +626,6 @@ function generateCSSKeyframes(animator, keyframes, name, time) {
 //         n.className = n.className.replace('touched', '');
 //     }
 // }
-
-function moveElement(element, x, y) {
-    element.style.webkitTransform = 'translate3d('
-    +(x ? (x+'px') : '0')+','
-    +(y ? (y+'px') : '0')+','
-    +'0)';      
-}
 
 function initScrollbar(element) {
     if (!element.scrollableScrollbar) {
@@ -659,7 +668,7 @@ function createXDirection(element) {
         },
 
         update: function(position) {
-            return 'translate3d(' + position + 'px, 0, 0)';
+            return 'translate3d(' + Math.round(position) + 'px, 0, 0)';
         }
     };
 }
@@ -668,6 +677,7 @@ function createYDirection(element) {
     var parent = element.parentNode;
     var transform = getComputedStyle(element).webkitTransform;
     var position = new WebKitCSSMatrix(transform).m42;
+    // D&&D('start ' + position);
 
     return {
         node: element,
@@ -692,14 +702,14 @@ function createYDirection(element) {
         },
         
         update: function(position) {
-            return 'translate3d(0, ' + position + 'px, 0)';
+            return 'translate3d(0, ' + Math.round(position) + 'px, 0)';
         }
     };    
 }
 
 function play(node, name, time) {
     if (name) {
-        node.style.webkitAnimation = name + " " + time + "ms linear both";
+        node.style.webkitAnimation = name + " " + time + "ms linear";
     }
     node.style.webkitAnimationPlayState = name ? "running" : "paused";
 }
