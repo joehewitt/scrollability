@@ -34,7 +34,7 @@ var kStoppedThreshold = 4;
 var kLockThreshold = 10;
 
 // Percentage of the page which content can be overscrolled before it must bounce back
-var kBounceLimit = 0.5;
+var kBounceLimit = 0.75;
 
 // Rate of deceleration when content has overscrolled and is slowing down before bouncing back
 var kBounceDecelRate = 0.01;
@@ -89,25 +89,29 @@ function onLoad() {
     exports.flashIndicators();
 }
 
-function onTouchStart(event) {
-    var touch = isTouch ? event.touches[0] : event;
-    // var touched = null;
-
-    touchX = startX = touch.clientX;
-    touchY = startY = touch.clientY;
-    touchMoved = false;
-
-    touchAnimators = getTouchAnimators(event.target, touchX, touchY, event.timeStamp);
-    if (!touchAnimators.length) {
-        return true;
-    }
-    
+require.ready(function() {
     var d = document;
+    d.addEventListener(isTouch ? 'touchstart' : 'mousedown', onTouchStart, false);
     d.addEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
     d.addEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
+    // window.addEventListener('load', onLoad, false);
 
-    // if (D) event.preventDefault();
-    
+    function onTouchStart(event) {
+        var touch = isTouch ? event.touches[0] : event;
+        // var touched = null;
+
+        touchX = startX = touch.clientX;
+        touchY = startY = touch.clientY;
+        touchMoved = false;
+
+        touchAnimators = getTouchAnimators(event.target, touchX, touchY, event.timeStamp);
+        if (!touchAnimators.length) {
+            return true;
+        }
+        
+        // if (D) event.preventDefault();
+    }
+        
     function onTouchMove(event) {
         event.preventDefault();
         touchMoved = true;
@@ -148,12 +152,9 @@ function onTouchStart(event) {
         //     releaseTouched(touched);
         // }
         
-        d.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
-        d.removeEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
-
         touchAnimation(event.timeStamp);
     }
-}
+});
 
 function wrapAnimator(animator, startX, startY, startTime) {
     var node = animator.node;
@@ -188,14 +189,16 @@ function wrapAnimator(animator, startX, startY, startTime) {
     }
 
     // XXXjoe This stuff only needs to be done if animation was running when touch began
-    play(node);
-    if (scrollbar) {
-        play(scrollbar);
-    }
     if (node.dirtyEnding) {
+        play(node);
+        if (scrollbar) {
+            play(scrollbar);
+        }
+
         node.dirtyEnding();
+
+        reposition(position);
     }
-    reposition(position);
     
     if (!animator.mute) {
         if (!dispatch("scrollability-start", node)) {
@@ -233,10 +236,10 @@ function wrapAnimator(animator, startX, startY, startTime) {
         if (constrained) {
             if (position > max && absMax == max) {
                 var excess = position - max;
-                velocity *= (1.0 - excess / bounceLimit);
+                velocity *= (1.0 - excess / bounceLimit)*kBounceLimit;
             } else if (position < min && absMin == min) {
                 var excess = min - position;
-                velocity *= (1.0 - excess / bounceLimit);
+                velocity *= (1.0 - excess / bounceLimit)*kBounceLimit;
             }
         }
 
@@ -718,8 +721,3 @@ function dispatch(name, target, props) {
 
     return target.dispatchEvent(e);
 }
-
-require.ready(function() {
-    document.addEventListener(isTouch ? 'touchstart' : 'mousedown', onTouchStart, false);
-    // window.addEventListener('load', onLoad, false);
-});
