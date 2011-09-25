@@ -13,28 +13,22 @@ html, body {
     padding: 0;
     margin: 0;
     background: #000;
+}
+  
+ .scrollable {
+    display: inline-block;
+    max-width: 1024px;
     overflow: hidden;
 }
- 
-#container {
-    position: absolute;
+
+ .gallery  {
+    position: relative;
     left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
     white-space: nowrap;
 }
- 
- .scrollable {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
- }
 
 .page {
     display: inline-block;
-    height: 100%;
     margin-right: 20px;
     color: #fff;
     font: 40px Helvetica;
@@ -42,7 +36,7 @@ html, body {
     -webkit-box-sizing: border-box;
     white-space: normal;
 }
- 
+
 </style> 
  
 <script type="text/javascript" src="/scrollability.min.js"></script>
@@ -53,22 +47,36 @@ var colors = [
 "blue",
 "green",
 "red",
-"gray",
+"green"
 ];
 
 addEventListener('DOMContentLoaded', function() {
-    var container = document.querySelector('.scrollable.horizontal');
-    for (var i = 0; i < colors.length; ++i) {
+    var gallery = document.querySelector('.gallery');
+    for (var i = 0; i < colors.length*10; ++i) {
         var page = document.createElement('div');
         page.className = 'page';
-        page.style.backgroundColor = colors[i];
+        page.style.backgroundColor = colors[i%colors.length];
+        page.style.backgroundImage = "url(sample.jpg)";
+        page.style.backgroundSize = "cover";
         page.style.width = window.innerWidth + "px";
-        page.innerHTML = 'Scroll horizontally between pages'
-        container.appendChild(page);
+        page.style.height = window.innerHeight + "px";
+        page.innerHTML = i + ' Scroll horizontally between pages'
+        gallery.appendChild(page);
     }
+
+    var page = 0;
+    var scrollable = document.querySelector('.scrollable');
+    scrollable.addEventListener("scrollability-start", function(event) {
+        ++page;
+
+        var margin = 20;
+        gallery.style.left = -((page * (320+margin))) + "px";
+    });
 });
+
+window.onclick = function() { location.reload(true) }
 
 </script>
 </head> 
-<body><div id="container"><div class="scrollable horizontal paginated"></div></div></body>
+<body><div class="scrollable horizontal paginated"><div class="gallery"></div></div></body>
 </html>

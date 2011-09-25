@@ -59,7 +59,7 @@ var kScrollbarSize = 7;
 var kAnimationStep = 4;
 
 // The number of milliseconds of animation to condense into a keyframe
-var kKeyframeIncrement = 24;
+var kKeyframeIncrement = 48;
 
 // *************************************************************************************************
 
@@ -67,6 +67,7 @@ var startX, startY, touchX, touchY, touchMoved;
 var animationInterval = 0;
 var touchAnimators = [];
 var animationIndex = 0;
+var globalStyleSheet;
 
 var directions = {
     'horizontal': createXDirection,
@@ -83,42 +84,54 @@ exports.flashIndicators = function() {
 }
 
 function onLoad() {
-    exports.flashIndicators();
+    var ss = document.createElement("style");
+    document.head.appendChild(ss);
+    globalStyleSheet = document.styleSheets[document.styleSheets.length-1];
+
+    // exports.flashIndicators();
 }
 
 require.ready(function() {
-    var d = document;
+    document.addEventListener(isTouch ? 'touchstart' : 'mousedown', onTouchStart, false);
+    window.addEventListener('load', onLoad, false);
+});
 
-    d.addEventListener(isTouch ? 'touchstart' : 'mousedown', onTouchStart, false);
-    // window.addEventListener('load', onLoad, false);
+function onTouchStart(event) {
+    var touch = isTouch ? event.touches[0] : event;
+    var touched = null;
 
-    function onTouchStart(event) {
-        var touch = isTouch ? event.touches[0] : event;
-        // var touched = null;
+    touchX = startX = touch.clientX;
+    touchY = startY = touch.clientY;
+    touchMoved = false;
 
-        touchX = startX = touch.clientX;
-        touchY = startY = touch.clientY;
-        touchMoved = false;
-
-        touchAnimators = getTouchAnimators(event.target, touchX, touchY, event.timeStamp);
-        if (!touchAnimators.length) {
-            return true;
-        }
-    
-        d.addEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
-        d.addEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
-    
-        // if (D) event.preventDefault();
+    touchAnimators = getTouchAnimators(event.target, touchX, touchY, event.timeStamp);
+    if (!touchAnimators.length) {
+        return true;
     }
+
+    var touchCandidate = event.target;
+    var holdTimeout = setTimeout(function() {
+        holdTimeout = 0;
+        touched = setTouched(touchCandidate);
+    }, 50);
+
+    document.addEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
+    document.addEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
+
+    // if (D) event.preventDefault();
         
     function onTouchMove(event) {
         event.preventDefault();
         touchMoved = true;
 
-        // if (touched) {
-        //     releaseTouched(touched);
-        //     touched = null;
-        // }
+        if (holdTimeout) {
+            clearTimeout(holdTimeout);
+            holdTimeout = 0;
+        }
+        if (touched) {
+            releaseTouched(touched);
+            touched = null;
+        }
 
         var touch = isTouch ? event.touches[0] : event;
         touchX = touch.clientX;
@@ -133,30 +146,36 @@ require.ready(function() {
                     touchAnimators.splice(i--, 1);
 
                     if (touchAnimators.length == 1) {
-                        dispatch("scrollability-lock", animator.node, {direction: animator.direction});
+                        var locked = touchAnimators[0];
+                        dispatch("scrollability-lock", locked.node, {direction: locked.direction});
                     }
                 }
             }
         }
 
-        touchAnimation(event.timeStamp, true);
+        touchAnimators.forEach(function(animator) {
+            var touch = animator.filter(touchX, touchY);
+            animator.track(touch, event.timeStamp);
+        });
     }
 
     function onTouchEnd(event) {
         // Simulate a click event when releasing the finger
-        // if (touched) {
-        //     var evt = document.createEvent('MouseEvents'); 
-        //     evt.initMouseEvent('click', true, true, window, 1);
-        //     touched[0].dispatchEvent(evt); 
-        //     releaseTouched(touched);
-        // }
+        if (touched) {
+            var evt = document.createEvent('MouseEvents'); 
+            evt.initMouseEvent('click', true, true, window, 1);
+            touched[0].dispatchEvent(evt); 
+            releaseTouched(touched);
+        }
 
-        d.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
-        d.removeEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
+        document.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
+        document.removeEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
         
-        touchAnimation(event.timeStamp);
+        touchAnimators.forEach(function(animator) {
+            animator.takeoff();
+        });
     }
-});
+}
 
 function wrapAnimator(animator, startX, startY, startTime) {
     var node = animator.node;
@@ -204,13 +223,14 @@ function wrapAnimator(animator, startX, startY, startTime) {
         }
     }
 
-    if (node.dirtyEnding) {
+
+    if (node.earlyEnd) {
         play(node);
         tracked.forEach(function(item) {
             play(item.node);
         });
 
-        node.dirtyEnding();
+        node.earlyEnd();
 
         update(position);
     }
@@ -288,12 +308,11 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
     function takeoff() {
         if (stopped) {
-            terminate();
             velocity = 0;
         }
 
-        // position += velocity;
-        update(position+velocity);
+        position += velocity;
+        update(position);
 
         velocity = (velocity/timeStep) * kAnimationStep;
 
@@ -309,52 +328,41 @@ function wrapAnimator(animator, startX, startY, startTime) {
             keyframes: timeline.keyframes
         });
 
-        var ss = document.styleSheets[0];
-        var ruleIndex = ss.rules.length;
-        ss.insertRule(timeline.css, ruleIndex);
+        if (node.cleanup) {
+            node.cleanup();
+        }        
+
+        globalStyleSheet.insertRule(timeline.css, 0);
 
         tracked.forEach(function(item, i) {
             item.name = 'scrollability-track'+(animationIndex++);
             var css = generateCSSKeyframes(animator, item.keyframes, item.name, timeline.time);
-            ss.insertRule(css, ruleIndex+i+1);
+            globalStyleSheet.insertRule(css, 0);
         });
 
-        var dirtyEnding = node.dirtyEnding = function() {
-            delete node.dirtyEnding;
-            node.removeEventListener("webkitAnimationEnd", tidyEnding, false);            
-            
-            if (scrollbar) {
-                fadeIn(scrollbar);
-            }
-
-            if (!animator.mute) {
-                dispatch("scrollability-end", node);
-            }
+        node.earlyEnd = function() {
+            terminex(true);
         }
-        function tidyEnding() {
+        node.normalEnd = function() {
             reposition(timeline.keyframes[timeline.keyframes.length-1].position);
-            terminate();
+            terminex();
         }
-        node.addEventListener("webkitAnimationEnd", tidyEnding, false);
 
-        var cleanup = node.cleanup;
         node.cleanup = function() {
             delete node.cleanup;
-            ss.deleteRule(ruleIndex);
+            globalStyleSheet.deleteRule(0);
             tracked.forEach(function(item) {
-                ss.deleteRule(ruleIndex);
+                globalStyleSheet.deleteRule(0);
             });
         }
+
+        node.addEventListener("webkitAnimationEnd", node.normalEnd, false);
         
         play(node, timeline.name, timeline.time);
 
         tracked.forEach(function(item) {
             play(item.node, item.name, timeline.time);
         });
-
-        if (cleanup) {
-            cleanup();
-        }        
     }
 
     function createTimeline() {
@@ -378,18 +386,19 @@ function wrapAnimator(animator, startX, startY, startTime) {
                         max += viewport+pageSpacing;
                         min += viewport+pageSpacing;
 
-                        // var totalSpacing = min % viewport;
-                        // var page = -Math.round((position+viewport-totalSpacing)/viewport);
-                        // dispatch("scrollability-page", animator.node, {page: page});
+                        // XXXjoe Only difference between this and code below is -viewport. Merge 'em!
+                        var totalSpacing = min % viewport;
+                        var page = -Math.round((position+viewport-totalSpacing)/viewport);
+                        dispatch("scrollability-page", animator.node, {page: page});
                     }
                 } else {
                     if (min != absMin) {
                         max -= viewport+pageSpacing;
                         min -= viewport+pageSpacing;
 
-                        // var totalSpacing = min % viewport;
-                        // var page = -Math.round((position-viewport-totalSpacing)/viewport);
-                        // dispatch("scrollability-page", animator.node, {page: page});
+                        var totalSpacing = min % viewport;
+                        var page = -Math.round((position-viewport-totalSpacing)/viewport);
+                        dispatch("scrollability-page", animator.node, {page: page});
                     }
                 }
             }
@@ -403,6 +412,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
                     var excess = position - max;
                     var elasticity = (1.0 - excess / bounceLimit);
                     velocity = Math.max(velocity - kBounceDecelRate, 0) * elasticity;
+                    // D&&D('slowing down', velocity);
                     position += velocity;
                 } else {
                     // Bouncing back
@@ -410,6 +420,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
                         decelOrigin = position;
                         decelDelta = max - position;
                     }
+                    // D&&D('bouncing back');
                     position = easeOutExpo(decelStep, decelOrigin, decelDelta, bounceTime);
                     continues = ++decelStep <= bounceTime && Math.floor(Math.abs(position)) > max;
                 }
@@ -436,13 +447,15 @@ function wrapAnimator(animator, startX, startY, startTime) {
                     continues = ++decelStep <= bounceTime && Math.ceil(position) < min;
                 }
             } else {
+                continues = Math.floor(Math.abs(velocity)*10) > 0;
+                if (!continues)
+                    break;
+
                 velocity *= kFriction;
                 position += velocity;
-                continues = Math.floor(Math.abs(velocity)*10) > 0;
             }
 
             saveKeyframe(!continues);            
-
             time += kAnimationStep;
         }
 
@@ -468,8 +481,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
         function saveKeyframe(force) {
             var diff = position - lastPosition;
             // Add a new frame when we've changed direction, or passed the prescribed granularity
-            if (force || (time >= kKeyframeIncrement
-                          && (time-lastKeyTime >= kKeyframeIncrement || (lastDiff < 0 != diff < 0)))) {
+            if (force || (time-lastKeyTime >= kKeyframeIncrement || (lastDiff < 0 != diff < 0))) {
                 keyframes.push({position: position, time: time});
 
                 tracked.forEach(function(item) {
@@ -505,30 +517,29 @@ function wrapAnimator(animator, startX, startY, startTime) {
         });
     }
 
-    function terminate() {
-        if (node.dirtyEnding) {
-            node.dirtyEnding();
-        }
-        // Hide the scrollbar
+    function terminex(showScrollbar) {
         if (scrollbar) {
-            scrollbar.style.opacity = '0';
-            scrollbar.style.webkitTransition = 'opacity 0.33s linear';
+            if (showScrollbar) {
+                fadeIn(scrollbar);
+            } else {
+                scrollbar.style.opacity = '0';
+                scrollbar.style.webkitTransition = 'opacity 0.33s linear';                
+            }
         }
+
+        node.removeEventListener("webkitAnimationEnd", node.normalEnd, false);            
+
+        delete node.earlyEnd;
+        delete node.normalEnd;
+        
+        if (!animator.mute) {
+            dispatch("scrollability-end", node);
+        }
+        
     }
-}
 
-function touchAnimation(time, touchDown) {
-    // Animate each of the animators
-    for (var i = 0; i < touchAnimators.length; ++i) {
-        var animator = touchAnimators[i];
-
-        // Translate the x/y touch into the value needed by each of the animators
-        var touch = animator.filter(touchX, touchY);
-        if (touchDown) {
-            animator.track(touch, time);
-        } else {
-            animator.takeoff();
-        }
+    function terminate() {
+        terminex();
     }
 }
 
@@ -609,23 +620,23 @@ function generateCSSKeyframes(animator, keyframes, name, time) {
     return lines.join('\n');    
 }
 
-// function setTouched(target) {
-//     var touched = [];
-//     for (var n = target; n; n = n.parentNode) {
-//         if (n.nodeType == 1) {
-//             n.className = (n.className ? n.className + ' ' : '') + 'touched';
-//             touched.push(n);
-//         }
-//     }
-//     return touched;
-// }
+function setTouched(target) {
+    var touched = [];
+    for (var n = target; n; n = n.parentNode) {
+        if (n.nodeType == 1) {
+            n.className = (n.className ? n.className + ' ' : '') + 'touched';
+            touched.push(n);
+        }
+    }
+    return touched;
+}
 
-// function releaseTouched(touched) {
-//     for (var i = 0; i < touched.length; ++i) {
-//         var n = touched[i];
-//         n.className = n.className.replace('touched', '');
-//     }
-// }
+function releaseTouched(touched) {
+    for (var i = 0; i < touched.length; ++i) {
+        var n = touched[i];
+        n.className = n.className.replace('touched', '');
+    }
+}
 
 function initScrollbar(element) {
     if (!element.scrollableScrollbar) {
@@ -721,7 +732,7 @@ function fadeIn(node) {
 
 function dispatch(name, target, props) {
     var e = document.createEvent("Events");
-    e.initEvent(name, true, true);
+    e.initEvent(name, false, true);
 
     if (props) {
         for (var name in props) {
