@@ -17,12 +17,13 @@ html, body {
   
  .scrollable {
     display: inline-block;
-    max-width: 1024px;
+    max-width: 1000px;
     overflow: hidden;
 }
 
  .gallery  {
     position: relative;
+    display: inline-block;
     left: 0;
     white-space: nowrap;
 }
@@ -35,6 +36,8 @@ html, body {
     padding: 10px;
     -webkit-box-sizing: border-box;
     white-space: normal;
+    background-color: #222;
+    background-size: cover;
 }
 
 </style> 
@@ -44,39 +47,47 @@ html, body {
 <script language="javascript">
 
 var colors = [
-"blue",
-"green",
-"red",
-"green"
+"s1.jpg",
+"s2.jpg",
+"s3.jpg",
+"s4.jpg",
+"s5.jpg"
 ];
 
 addEventListener('DOMContentLoaded', function() {
     var gallery = document.querySelector('.gallery');
-    for (var i = 0; i < colors.length*10; ++i) {
+    for (var i = 0; i < colors.length*2; ++i) {
         var page = document.createElement('div');
         page.className = 'page';
-        page.style.backgroundColor = colors[i%colors.length];
-        page.style.backgroundImage = "url(sample.jpg)";
-        page.style.backgroundSize = "cover";
+        page.style.backgroundImage = "url(" + colors[i%colors.length] + ")";
         page.style.width = window.innerWidth + "px";
         page.style.height = window.innerHeight + "px";
-        page.innerHTML = i + ' Scroll horizontally between pages'
+        page.innerHTML = '#'+i;
         gallery.appendChild(page);
     }
 
-    var page = 0;
+    var margin = 20;
+    var viewport = 320;
+    var maxWidth = 1000;
+
     var scrollable = document.querySelector('.scrollable');
     scrollable.addEventListener("scrollability-start", function(event) {
-        ++page;
+        var pageIndex = Math.round(event.position/(viewport+margin));
+        var roundOffset = pageIndex * (viewport+margin);
 
-        var margin = 20;
-        gallery.style.left = -((page * (320+margin))) + "px";
+        var offset = -(maxWidth/2 - viewport/2) - roundOffset;
+        var clipoff = (((viewport+margin))) + roundOffset;
+
+        gallery.style.left = clipoff + "px";
+
+        event.setSpacing(margin);
+        event.setOffset(offset);
     });
 });
 
-window.onclick = function() { location.reload(true) }
+//window.onclick = function() { location.reload(true) }
 
 </script>
 </head> 
-<body><div class="scrollable horizontal paginated"><div class="gallery"></div></div></body>
+<body><div class="scrollable horizontal paginated universal"><div class="gallery clipper"></div></div></body>
 </html>

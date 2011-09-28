@@ -6,8 +6,8 @@
 
 // function D() {
 //     var args = []; args.push.apply(args, arguments);
-//     // console.log(args.join(' '));
-//     logs.push(args.join(' '));
+//     console.log(args.join(' '));
+//     // logs.push(args.join(' '));
 // }
 
 // window.showLog = function() {
@@ -41,7 +41,7 @@ var kBounceDecelRate = 0.01;
 
 // Duration of animation when bouncing back
 var kBounceTime = 240;
-var kPageBounceTime = 140;
+var kPageBounceTime = 160;
 
 // Percentage of viewport which must be scrolled past in order to snap to the next page
 var kPageLimit = 0.5;
@@ -59,7 +59,7 @@ var kScrollbarSize = 7;
 var kAnimationStep = 4;
 
 // The number of milliseconds of animation to condense into a keyframe
-var kKeyframeIncrement = 48;
+var kKeyframeIncrement = 24;
 
 // *************************************************************************************************
 
@@ -198,22 +198,31 @@ function wrapAnimator(animator, startX, startY, startTime) {
     var timeStep = 0;
     var stopped = 0;
     var tracked = [];
-
-    if (paginated) {
-        var excess = Math.round(Math.abs(absMin) % viewport);
-        var pageCount = ((Math.abs(absMin)-excess) / viewport)+1;
-        var pageSpacing = excess / pageCount;
-
-        var pageIndex = Math.round(position/viewport);
-        min = max = pageIndex * (viewport+pageSpacing);
-
-        absMin += pageSpacing;
-    }
+    var pageSpacing;
+    var offset = node.scrollableOffset||0;
 
     if (!animator.mute) {
-        if (!dispatch("scrollability-start", node, {track: addTracker})) {
-            return null;        
+        var event = {
+            position: position,
+            track: addTracker,
+            setSpacing: setSpacing,
+            setOffset: setOffset
+        };
+        if (!dispatch("scrollability-start", node, event)) {
+            return null;
         }
+    }
+
+    if (paginated) {
+        if (pageSpacing === undefined) {
+            var excess = Math.round(Math.abs(absMin) % viewport);
+            var pageCount = ((Math.abs(absMin)-excess) / viewport)+1;
+            pageSpacing = excess / pageCount;
+        }
+
+        var pageIndex = Math.round(position/(viewport+pageSpacing));
+        min = max = pageIndex * (viewport+pageSpacing);
+        absMin += pageSpacing;
     }
 
     if (scrollbar) {
@@ -222,7 +231,6 @@ function wrapAnimator(animator, startX, startY, startTime) {
             node.parentNode.appendChild(scrollbar);            
         }
     }
-
 
     if (node.earlyEnd) {
         play(node);
@@ -234,7 +242,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         update(position);
     }
-    
+        
     animator.reposition = update;
     animator.track = track;
     animator.takeoff = takeoff;
@@ -243,6 +251,16 @@ function wrapAnimator(animator, startX, startY, startTime) {
     
     function addTracker(node, callback) {
         tracked.push({node: node, callback: callback, keyframes: []});
+    }
+
+    function setSpacing(x) {
+        pageSpacing = x
+    }
+
+    function setOffset(x) {
+        offset = x;
+
+        track(lastTouch, lastTime);
     }
 
     function track(touch, time) {
@@ -460,10 +478,10 @@ function wrapAnimator(animator, startX, startY, startTime) {
         }
 
         if (paginated) {
-            var pageIndex = Math.round(position/viewport);
+            var pageIndex = Math.round(position/(viewport+pageSpacing));
             position = pageIndex * (viewport+pageSpacing);
             saveKeyframe(true);
-        } else  if (position > max && constrained) {
+        } else if (position > max && constrained) {
             position = max;
             saveKeyframe(true);
         } else if (position < min && constrained) {
@@ -474,7 +492,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
         var totalTime = keyframes.length ? keyframes[keyframes.length-1].time : 0;
 
         var name = "scrollability" + (animationIndex++);
-        var css = generateCSSKeyframes(animator, keyframes, name, totalTime);
+        var css = generateCSSKeyframes(animator, keyframes, name, totalTime, offset);
 
         return {time: totalTime, position: position, keyframes: keyframes, name: name, css: css};
 
@@ -485,7 +503,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
                 keyframes.push({position: position, time: time});
 
                 tracked.forEach(function(item) {
-                    item.keyframes.push({time: time, css: item.callback(position)});;
+                    item.keyframes.push({time: time, css: item.callback(position)});
                 });
 
                 lastDiff = diff;
@@ -509,8 +527,9 @@ function wrapAnimator(animator, startX, startY, startTime) {
     }
 
     function reposition(pos) {
-        // D&&D('move to', pos);
-        node.style.webkitTransform = animator.update(pos);
+        // D&&D('move to', pos, offset);
+        node.style.webkitTransform = animator.update(pos+offset);
+        node.scrollableOffset = offset;
 
         tracked.forEach(function(item) {
             item.node.style.webkitTransform = item.callback(pos);
@@ -603,13 +622,13 @@ function createAnimatorForElement(element, touchX, touchY, startTime) {
     }
 }
 
-function generateCSSKeyframes(animator, keyframes, name, time) {
+function generateCSSKeyframes(animator, keyframes, name, time, offset) {
     var lines = ['@-webkit-keyframes ' + name + ' {'];
 
     keyframes.forEach(function(keyframe) {
         var percent = (keyframe.time / time) * 100;
         var frame = Math.floor(percent) + '% {'
-            + '-webkit-transform: ' + (keyframe.css || animator.update(keyframe.position)) + ';'
+            + '-webkit-transform: ' + (keyframe.css || animator.update(keyframe.position+offset)) + ';'
             + '}';
         // D&&D(frame);
         lines.push(frame);
@@ -652,14 +671,20 @@ function easeOutExpo(t, b, c, d) {
 
 // *************************************************************************************************
 
-function createXDirection(element) {
-    var parent = element.parentNode;
-    var transform = getComputedStyle(element).webkitTransform;
-    var position = new WebKitCSSMatrix(transform).m41;
+function createXDirection(node) {
+    var parent = node.parentNode;
+    var clipper = node.querySelector(".scrollable > .clipper") || node;
+
+    // Necessary to pause animation in order to get correct transform value
+    if (node.style.webkitAnimation) {
+        node.style.webkitAnimationPlayState = "paused";
+    }
+    var transform = getComputedStyle(node).webkitTransform;
+    var position = new WebKitCSSMatrix(transform).m41 - (node.scrollableOffset||0);
 
     return {
-        node: element,
-        min: -element.offsetWidth + parent.offsetWidth,
+        node: node,
+        min: -clipper.offsetWidth + parent.offsetWidth,
         max: 0,
         position: position,
         viewport: parent.offsetWidth,
@@ -684,17 +709,24 @@ function createXDirection(element) {
     };
 }
 
-function createYDirection(element) {
-    var parent = element.parentNode;
-    var transform = getComputedStyle(element).webkitTransform;
+function createYDirection(node) {
+    var parent = node.parentNode;
+    var clipper = node.querySelector(".scrollable > .clipper") || node;
+
+    // Necessary to pause animation in order to get correct transform value
+    if (node.style.webkitAnimation) {
+        node.style.webkitAnimationPlayState = "paused";
+    }
+
+    var transform = getComputedStyle(node).webkitTransform;
     var position = new WebKitCSSMatrix(transform).m42;
     // D&&D('start ' + position);
 
     return {
-        node: element,
-        scrollbar: initScrollbar(element),
+        node: node,
+        scrollbar: initScrollbar(node),
         position: position,
-        min: -element.offsetHeight + parent.offsetHeight,
+        min: -clipper.offsetHeight + parent.offsetHeight,
         max: 0,
         viewport: parent.offsetHeight,
         bounce: parent.offsetHeight * kBounceLimit,
@@ -720,7 +752,7 @@ function createYDirection(element) {
 
 function play(node, name, time) {
     if (name) {
-        node.style.webkitAnimation = name + " " + time + "ms linear";
+        node.style.webkitAnimation = name + " " + time + "ms linear both";
     }
     node.style.webkitAnimationPlayState = name ? "running" : "paused";
 }
