@@ -77,10 +77,10 @@ var directions = {
 exports.directions = directions;
 
 exports.flashIndicators = function() {
-    var scrollables = document.querySelectorAll('.scrollable.vertical');
-    for (var i = 0; i < scrollables.length; ++i) {
-        exports.scrollTo(scrollables[i], 0, 0, 20, true);
-    }            
+    // var scrollables = document.querySelectorAll('.scrollable.vertical');
+    // for (var i = 0; i < scrollables.length; ++i) {
+    //     exports.scrollTo(scrollables[i], 0, 0, 20, true);
+    // }            
 }
 
 function onLoad() {
@@ -198,7 +198,6 @@ function wrapAnimator(animator, startX, startY, startTime) {
     var timeStep = 0;
     var stopped = 0;
     var tracked = [];
-    var pageSpacing;
     var offset = node.scrollableOffset||0;
 
     if (!animator.mute) {
@@ -406,7 +405,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
                         // XXXjoe Only difference between this and code below is -viewport. Merge 'em!
                         var totalSpacing = min % viewport;
-                        var page = -Math.round((position+viewport-totalSpacing)/viewport);
+                        var page = -Math.round((position+viewport-totalSpacing)/(viewport+pageSpacing));
                         dispatch("scrollability-page", animator.node, {page: page});
                     }
                 } else {
@@ -415,7 +414,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
                         min -= viewport+pageSpacing;
 
                         var totalSpacing = min % viewport;
-                        var page = -Math.round((position-viewport-totalSpacing)/viewport);
+                        var page = -Math.round((position-viewport-totalSpacing)/(viewport+pageSpacing));
                         dispatch("scrollability-page", animator.node, {page: page});
                     }
                 }
