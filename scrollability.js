@@ -205,7 +205,8 @@ function wrapAnimator(animator, startX, startY, startTime) {
             position: position,
             track: addTracker,
             setSpacing: setSpacing,
-            setOffset: setOffset
+            setOffset: setOffset,
+            setBounds: setBounds
         };
         if (!dispatch("scrollability-start", node, event)) {
             return null;
@@ -262,6 +263,11 @@ function wrapAnimator(animator, startX, startY, startTime) {
         track(lastTouch, lastTime);
     }
 
+    function setBounds(newMin, newMax) {
+        min = newMin;
+        max = newMax;
+    }
+
     function track(touch, time) {
         timeStep = time - lastTime;
         lastTime = time;
@@ -301,10 +307,10 @@ function wrapAnimator(animator, startX, startY, startTime) {
     }
 
     function trackScrollbar(position) {
-        var range = -min - max;
-        if (scrollbar && viewport < range) {
+        var range = max - min;
+        if (scrollbar && min < 0) {
             var viewable = viewport - kScrollbarMargin*2;
-            var height = (viewable/range) * viewable;
+            var height = (viewable/(range+viewport)) * viewable;
             var scrollPosition;
             if (position > max) {
                 height = Math.max(height - (position-max), kScrollbarSize);
@@ -314,7 +320,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
                 height = Math.max(height - (min - position), kScrollbarSize);
                 scrollPosition = viewable-height;
             } else {
-                scrollPosition = (Math.abs(position) / range) * (viewable-height);
+                scrollPosition = (Math.abs((max-position)) / range) * (viewable-height);
             }
             scrollPosition += kScrollbarMargin;
 
@@ -324,6 +330,13 @@ function wrapAnimator(animator, startX, startY, startTime) {
     }
 
     function takeoff() {
+        dispatch("scrollability-takeoff", node, {
+            position: position,
+            min: min,
+            max: max,
+            setBounds: setBounds
+        });
+
         if (stopped) {
             velocity = 0;
         }
