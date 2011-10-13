@@ -1,0 +1,19 @@
+
+.scrollable {
+    -webkit-transform: translate3d(0,0,0);
+}
+
+.scrollability-scrollbar {
+	position: absolute;
+	top: 0;
+	right: 2px;
+	width: 7px;
+	height: 1px;
+	z-index: 2147483647;	
+	opacity: 0;
+	-webkit-transform: translate3d(0,0,0);
+	-webkit-box-sizing: border-box;
+	-webkit-transform-origin: top left;
+	/*-webkit-border-image: url(scrollbar.png) 6 2 6 2 / 3px 1px 3px 1px round round;*/
+	background: url(scrollbar-mid.png) no-repeat;
+}
