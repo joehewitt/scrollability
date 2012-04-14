@@ -203,6 +203,8 @@ function wrapAnimator(animator, startX, startY, startTime) {
     if (!animator.mute) {
         var event = {
             position: position,
+            min: min,
+            max: max,
             track: addTracker,
             setSpacing: setSpacing,
             setOffset: setOffset,
@@ -527,7 +529,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
     function update(pos) {
         if (!dispatch("scrollability-scroll", node,
-            {direction: animator.direction, position: pos})) {
+            {direction: animator.direction, position: pos, max: max, min: min})) {
             return;
         }
 
