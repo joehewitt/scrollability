@@ -80,7 +80,7 @@ exports.flashIndicators = function() {
     // var scrollables = document.querySelectorAll('.scrollable.vertical');
     // for (var i = 0; i < scrollables.length; ++i) {
     //     exports.scrollTo(scrollables[i], 0, 0, 20, true);
-    // }            
+    // }
 }
 
 function onLoad() {
@@ -119,7 +119,7 @@ function onTouchStart(event) {
     document.addEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
 
     // if (D) event.preventDefault();
-        
+
     function onTouchMove(event) {
         event.preventDefault();
         touchMoved = true;
@@ -162,15 +162,15 @@ function onTouchStart(event) {
     function onTouchEnd(event) {
         // Simulate a click event when releasing the finger
         if (touched) {
-            var evt = document.createEvent('MouseEvents'); 
+            var evt = document.createEvent('MouseEvents');
             evt.initMouseEvent('click', true, true, window, 1);
-            touched[0].dispatchEvent(evt); 
+            touched[0].dispatchEvent(evt);
             releaseTouched(touched);
         }
 
         document.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
         document.removeEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
-        
+
         touchAnimators.forEach(function(animator) {
             animator.takeoff();
         });
@@ -230,7 +230,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
     if (scrollbar) {
         addTracker(scrollbar, trackScrollbar);
         if (!scrollbar.parentNode) {
-            node.parentNode.appendChild(scrollbar);            
+            node.parentNode.appendChild(scrollbar);
         }
     }
 
@@ -244,13 +244,13 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         update(position);
     }
-        
+
     animator.reposition = update;
     animator.track = track;
     animator.takeoff = takeoff;
     animator.terminate = terminate;
     return animator;
-    
+
     function addTracker(node, callback) {
         tracked.push({node: node, callback: callback, keyframes: []});
     }
@@ -276,7 +276,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         velocity = touch - lastTouch;
         lastTouch = touch;
-        
+
         if (Math.abs(velocity) >= kStoppedThreshold) {
             if (stopped) {
                 --stopped;
@@ -362,7 +362,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         if (node.cleanup) {
             node.cleanup();
-        }        
+        }
 
         globalStyleSheet.insertRule(timeline.css, 0);
 
@@ -389,7 +389,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
         }
 
         node.addEventListener("webkitAnimationEnd", node.normalEnd, false);
-        
+
         play(node, timeline.name, timeline.time);
 
         tracked.forEach(function(item) {
@@ -487,7 +487,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
                 position += velocity;
             }
 
-            saveKeyframe(!continues);            
+            saveKeyframe(!continues);
             time += kAnimationStep;
         }
 
@@ -556,19 +556,19 @@ function wrapAnimator(animator, startX, startY, startTime) {
                 fadeIn(scrollbar);
             } else {
                 scrollbar.style.opacity = '0';
-                scrollbar.style.webkitTransition = 'opacity 0.33s linear';                
+                scrollbar.style.webkitTransition = 'opacity 0.33s linear';
             }
         }
 
-        node.removeEventListener("webkitAnimationEnd", node.normalEnd, false);            
+        node.removeEventListener("webkitAnimationEnd", node.normalEnd, false);
 
         delete node.earlyEnd;
         delete node.normalEnd;
-        
+
         if (!animator.mute) {
             dispatch("scrollability-end", node);
         }
-        
+
     }
 
     function terminate() {
@@ -580,7 +580,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
 function getTouchAnimators(node, touchX, touchY, startTime) {
     var animators = [];
-    
+
     // Get universally scrollable elements
     var candidates = document.querySelectorAll('.scrollable.universal');
     for (var j = 0; j < candidates.length; ++j) {
@@ -611,7 +611,7 @@ function findAnimators(element, animators, touchX, touchY, startTime) {
                 if (!exists) {
                     animator = wrapAnimator(animator, touchX, touchY, startTime);
                     if (animator) {
-                        animators.push(animator);                            
+                        animators.push(animator);
                     }
                 }
             }
@@ -624,7 +624,7 @@ function createAnimatorForElement(element, touchX, touchY, startTime) {
     var classes = element.className.split(' ');
     if (classes.indexOf("scrollable") == -1)
         return;
-    
+
     for (var i = 0; i < classes.length; ++i) {
         var name = classes[i];
         if (directions[name]) {
@@ -650,7 +650,7 @@ function generateCSSKeyframes(animator, keyframes, name, time, offset) {
 
     lines.push('}');
 
-    return lines.join('\n');    
+    return lines.join('\n');
 }
 
 function setTouched(target) {
@@ -704,9 +704,9 @@ function createXDirection(node) {
         viewport: parent.offsetWidth,
         bounce: parent.offsetWidth * kBounceLimit,
         constrained: true,
-        
+
         filter: function(x, y) {
-            return x; 
+            return x;
         },
 
         disable: function (x, y, startX, startY) {
@@ -745,11 +745,11 @@ function createYDirection(node) {
         viewport: parent.offsetHeight,
         bounce: parent.offsetHeight * kBounceLimit,
         constrained: true,
-        
+
         filter: function(x, y) {
             return y;
         },
-        
+
         disable: function(x, y, startX, startY) {
             var dx = Math.abs(x - startX);
             var dy = Math.abs(y - startY);
@@ -757,11 +757,11 @@ function createYDirection(node) {
                 return true;
             }
         },
-        
+
         update: function(position) {
             return 'translate3d(0, ' + Math.round(position) + 'px, 0)';
         }
-    };    
+    };
 }
 
 function play(node, name, time) {
