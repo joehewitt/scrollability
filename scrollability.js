@@ -1,6 +1,31 @@
+// Global variable for exported functions
+var scrollability = {};
+
+(function(require, exports) {
+
 /* See LICENSE for terms of usage */
 
-"style scrollability/scrollbar.css"
+// Add the scrollbar styles to a new style tag
+var style = document.createElement('style');
+style.innerHTML =
+    '.scrollable { -webkit-transform: translate3d(0,0,0); }'
+  + '.scrollability-scrollbar {'
+      + 'position: absolute;'
+      + 'top: 0;'
+      + 'right: 2px;'
+      + 'width: 7px;'
+      + 'height: 1px;'
+      + 'z-index: 2147483647;'
+      + 'opacity: 0;'
+      + '-webkit-transform-origin: top left;'
+      + '-webkit-transform: translate3d(0,0,0);'
+      + '-webkit-box-sizing: border-box;'
+      + '-webkit-border-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAUhJREFUeNp0Ur1OwzAQtt1CaZQQgUjDhuicrEwoqjJlzpBAXoIHywtkcwfECyQPwIgKQkoyFJWq5k6cJcsUS5/sO993/1wpxazjAU4BJyR/A3aA0TSaGu85kbSO0y0AM/pH8lYr8ZwBLpBUluVtGIaPjuM8IYIgeEAdObwkB4xTqgv8iOP4vuu6lZEFRkUDHkWRbNv2mVJ/x4g+1pPn+RJICRlzk4Q3/lVVdUP1nwtqgpJSYqQJGbMj96RpmhXJM01kwzBcWU2x36zv+wXppro5TAihvat/HCjxa6R0V7FY5rruhx3BTtfzvDeS95rI0zSVcB+MpijL0SHLsjW9d3ocIRZvjINbKSsYx5rGsQdsNHFOC8CKolhCh+/GcbxG2ff9TZIkL3Vdv5KjT8AXN3b12MqZi4yRBiTZu7olmEvOacH/LPmPAAMA2bZzzeYUC40AAAAASUVORK5CYII=") 6 2 6 2 / 3px 1px 3px 1px round round;'
+      /*
+      + 'background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAABCAYAAADuHp8EAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAC5JREFUeNpi/P//vyQDAwMjKytr2Z8/f9gYIICRAQH+Q/n/WVhYfgNBJ4gNEGAAhVUOGMTI0TwAAAAASUVORK5CYII=") no-repeat;'
+      */
+  + '}';
+document.head.appendChild(style);
 
 // var logs = [];
 
@@ -77,10 +102,11 @@ var directions = {
 exports.directions = directions;
 
 exports.flashIndicators = function() {
+    // This needs to be implemented without scrolling to 0, 0 for each indicator
     // var scrollables = document.querySelectorAll('.scrollable.vertical');
     // for (var i = 0; i < scrollables.length; ++i) {
     //     exports.scrollTo(scrollables[i], 0, 0, 20, true);
-    // }            
+    // }
 }
 
 function onLoad() {
@@ -88,7 +114,7 @@ function onLoad() {
     document.head.appendChild(ss);
     globalStyleSheet = document.styleSheets[document.styleSheets.length-1];
 
-    // exports.flashIndicators();
+    exports.flashIndicators();
 }
 
 require.ready(function() {
@@ -119,7 +145,7 @@ function onTouchStart(event) {
     document.addEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
 
     // if (D) event.preventDefault();
-        
+
     function onTouchMove(event) {
         event.preventDefault();
         touchMoved = true;
@@ -162,15 +188,15 @@ function onTouchStart(event) {
     function onTouchEnd(event) {
         // Simulate a click event when releasing the finger
         if (touched) {
-            var evt = document.createEvent('MouseEvents'); 
+            var evt = document.createEvent('MouseEvents');
             evt.initMouseEvent('click', true, true, window, 1);
-            touched[0].dispatchEvent(evt); 
+            touched[0].dispatchEvent(evt);
             releaseTouched(touched);
         }
 
         document.removeEventListener(isTouch ? 'touchmove' : 'mousemove', onTouchMove, false);
         document.removeEventListener(isTouch ? 'touchend' : 'mouseup', onTouchEnd, false);
-        
+
         touchAnimators.forEach(function(animator) {
             animator.takeoff();
         });
@@ -230,7 +256,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
     if (scrollbar) {
         addTracker(scrollbar, trackScrollbar);
         if (!scrollbar.parentNode) {
-            node.parentNode.appendChild(scrollbar);            
+            node.parentNode.appendChild(scrollbar);
         }
     }
 
@@ -244,13 +270,13 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         update(position);
     }
-        
+
     animator.reposition = update;
     animator.track = track;
     animator.takeoff = takeoff;
     animator.terminate = terminate;
     return animator;
-    
+
     function addTracker(node, callback) {
         tracked.push({node: node, callback: callback, keyframes: []});
     }
@@ -276,7 +302,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         velocity = touch - lastTouch;
         lastTouch = touch;
-        
+
         if (Math.abs(velocity) >= kStoppedThreshold) {
             if (stopped) {
                 --stopped;
@@ -326,8 +352,10 @@ function wrapAnimator(animator, startX, startY, startTime) {
             }
             scrollPosition += kScrollbarMargin;
 
-            return 'translate3d(0, ' + Math.round(scrollPosition) + 'px,  0) '
-                   + 'scaleY(' + Math.round(height) + ')';
+            return {webkitTransform: 'translate3d(0, ' + Math.round(scrollPosition) + 'px,  0) ',
+                    height: Math.round(height) + 'px'
+                   };
+                       /*+ 'scale3d(1, ' + Math.round(height) + ', 1)';*/
         }
     }
 
@@ -362,7 +390,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
         if (node.cleanup) {
             node.cleanup();
-        }        
+        }
 
         globalStyleSheet.insertRule(timeline.css, 0);
 
@@ -389,7 +417,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
         }
 
         node.addEventListener("webkitAnimationEnd", node.normalEnd, false);
-        
+
         play(node, timeline.name, timeline.time);
 
         tracked.forEach(function(item) {
@@ -487,7 +515,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
                 position += velocity;
             }
 
-            saveKeyframe(!continues);            
+            saveKeyframe(!continues);
             time += kAnimationStep;
         }
 
@@ -546,7 +574,14 @@ function wrapAnimator(animator, startX, startY, startTime) {
         node.scrollableOffset = offset;
 
         tracked.forEach(function(item) {
-            item.node.style.webkitTransform = item.callback(pos);
+            var cb = item.callback(pos);
+            if(typeof cb == 'string') {
+                item.node.style.webkitTransform = item.callback(pos);
+            } else {
+                for(var prop in cb) {
+                    item.node.style[prop] = cb[prop];
+                }
+            }
         });
     }
 
@@ -555,20 +590,22 @@ function wrapAnimator(animator, startX, startY, startTime) {
             if (showScrollbar) {
                 fadeIn(scrollbar);
             } else {
-                scrollbar.style.opacity = '0';
-                scrollbar.style.webkitTransition = 'opacity 0.33s linear';                
+                setTimeout(function() {
+                    scrollbar.style.opacity = '0';
+                    scrollbar.style.webkitTransition = 'opacity 0.225s linear';
+                }, 50);
             }
         }
 
-        node.removeEventListener("webkitAnimationEnd", node.normalEnd, false);            
+        node.removeEventListener("webkitAnimationEnd", node.normalEnd, false);
 
         delete node.earlyEnd;
         delete node.normalEnd;
-        
+
         if (!animator.mute) {
             dispatch("scrollability-end", node);
         }
-        
+
     }
 
     function terminate() {
@@ -580,7 +617,7 @@ function wrapAnimator(animator, startX, startY, startTime) {
 
 function getTouchAnimators(node, touchX, touchY, startTime) {
     var animators = [];
-    
+
     // Get universally scrollable elements
     var candidates = document.querySelectorAll('.scrollable.universal');
     for (var j = 0; j < candidates.length; ++j) {
@@ -611,7 +648,7 @@ function findAnimators(element, animators, touchX, touchY, startTime) {
                 if (!exists) {
                     animator = wrapAnimator(animator, touchX, touchY, startTime);
                     if (animator) {
-                        animators.push(animator);                            
+                        animators.push(animator);
                     }
                 }
             }
@@ -624,7 +661,7 @@ function createAnimatorForElement(element, touchX, touchY, startTime) {
     var classes = element.className.split(' ');
     if (classes.indexOf("scrollable") == -1)
         return;
-    
+
     for (var i = 0; i < classes.length; ++i) {
         var name = classes[i];
         if (directions[name]) {
@@ -642,7 +679,8 @@ function generateCSSKeyframes(animator, keyframes, name, time, offset) {
     keyframes.forEach(function(keyframe) {
         var percent = (keyframe.time / time) * 100;
         var frame = Math.floor(percent) + '% {'
-            + '-webkit-transform: ' + (keyframe.css || animator.update(keyframe.position+offset)) + ';'
+            + '-webkit-transform: ' + (keyframe.css ? keyframe.css['webkitTransform'] : animator.update(keyframe.position+offset)) + ';'
+            + (keyframe.css && 'height' in keyframe.css ? 'height: ' + keyframe.css['height']  + ';' : '')
             + '}';
         // D&&D(frame);
         lines.push(frame);
@@ -650,7 +688,7 @@ function generateCSSKeyframes(animator, keyframes, name, time, offset) {
 
     lines.push('}');
 
-    return lines.join('\n');    
+    return lines.join('\n');
 }
 
 function setTouched(target) {
@@ -704,9 +742,9 @@ function createXDirection(node) {
         viewport: parent.offsetWidth,
         bounce: parent.offsetWidth * kBounceLimit,
         constrained: true,
-        
+
         filter: function(x, y) {
-            return x; 
+            return x;
         },
 
         disable: function (x, y, startX, startY) {
@@ -745,11 +783,11 @@ function createYDirection(node) {
         viewport: parent.offsetHeight,
         bounce: parent.offsetHeight * kBounceLimit,
         constrained: true,
-        
+
         filter: function(x, y) {
             return y;
         },
-        
+
         disable: function(x, y, startX, startY) {
             var dx = Math.abs(x - startX);
             var dy = Math.abs(y - startY);
@@ -757,11 +795,11 @@ function createYDirection(node) {
                 return true;
             }
         },
-        
+
         update: function(position) {
             return 'translate3d(0, ' + Math.round(position) + 'px, 0)';
         }
-    };    
+    };
 }
 
 function play(node, name, time) {
@@ -776,6 +814,7 @@ function fadeIn(node) {
     node.style.opacity = '1';
 }
 
+// "scrollability-" event dispatcher
 function dispatch(name, target, props) {
     var e = document.createEvent("Events");
     e.initEvent(name, false, true);
@@ -788,3 +827,8 @@ function dispatch(name, target, props) {
 
     return target.dispatchEvent(e);
 }
+
+})(
+    /* require */ {ready: function(fn) { fn(); }},
+    /* exports */ scrollability
+);
