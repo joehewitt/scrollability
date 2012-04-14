@@ -1,7 +1,7 @@
 {
   "name": "scrollability",
   "description": "Native-like scrolling for the web",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "homepage": "http://github.com/joehewitt/scrollability",
   "repository": {
     "type": "git",
@@ -21,5 +21,6 @@
   "app.js": {
     "static": "./static"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "optionalDependencies": {}
 }
